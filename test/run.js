@@ -13,7 +13,8 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
   await wait(60);
   const T = bruecke(['DATA','state','adoptVault','mergeVault','alsSchluessel','wochenstart',
                      'tageDerWoche','zeitraumSchluessel','standImZeitraum','muenzen',
-                     'habitVerlauf','habitBeginn','monatsSchluessel']);
+                     'habitVerlauf','habitBeginn','monatsSchluessel','zielStandPflegen',
+                     'abgelaufenesRaeumen','HALTEFRIST_TAGE','buchZuschnitt','render']);
 
   const tab = name => $$('#nav .tab').find(t => t.dataset.screen === name);
   const muenzstand = () => Number($('#muenzzahl').textContent);
@@ -22,11 +23,28 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
 
   await p.check('App startet ohne Fehler', () => { if (errors.length) throw new Error(errors[0]); });
 
-  await p.check('Sechs Bereiche in der Fußzeile', () => {
+  await p.check('Sieben Bereiche in der Fußzeile', () => {
     const namen = $$('#nav .tab').map(t => t.dataset.screen);
-    const soll = ['vorsaetze','habits','ziele','todo','pflichten','belohnungen'];
+    const soll = ['vorsaetze','habits','ziele','skills','todo','pflichten','belohnungen'];
     if (namen.join(',') !== soll.join(',')) throw new Error(namen.join(','));
     return namen.length + ' Bereiche';
+  });
+
+  await p.check('Pflicht und Lohn tragen nur ihr Zeichen', () => {
+    const stumm = $$('#nav .tab.nurzeichen');
+    if (stumm.length !== 2) throw new Error('nur zeichen: ' + stumm.length);
+    stumm.forEach(t => {
+      // Das Zeichen selbst ist Text; verschwinden soll die Beschriftung
+      // daneben — also darf neben dem Zeichen kein Textknoten stehen.
+      const daneben = [...t.childNodes]
+        .filter(k => k.nodeType === 3 && k.textContent.trim())
+        .map(k => k.textContent.trim());
+      if (daneben.length) throw new Error('Beschriftung geblieben: ' + daneben.join(''));
+      if (!t.getAttribute('aria-label')) throw new Error('Ohne Beschriftung für Hilfsmittel');
+    });
+    const beschriftet = $$('#nav .tab:not(.nurzeichen)').map(t => t.textContent.trim());
+    if (beschriftet.length !== 5) throw new Error('beschriftet: ' + beschriftet.length);
+    return beschriftet.join(' ');
   });
 
   await p.check('Der Münzstand steht oben rechts', () => {
@@ -58,8 +76,8 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     if (knoten.length !== 3) throw new Error('Knoten: ' + knoten.length);
     const orte = knoten.map(k => k.getAttribute('style'));
     if (new Set(orte).size !== 3) throw new Error('Knoten liegen übereinander');
-    if ($$('#kreisfeld svg line').length !== 3) throw new Error('Linien fehlen');
-    return '3 Knoten, 3 Linien';
+    if ($$('#kreisfeld svg .speiche').length !== 3) throw new Error('Speichen fehlen');
+    return '3 Knoten, 3 Speichen';
   });
 
   await p.check('Ein Klick auf den Knoten öffnet die Liste', async () => {
@@ -122,11 +140,15 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     if (!svg.querySelector('polygon')) throw new Error('Pentagramm fehlt');
     const zeichen = svg.querySelectorAll('text');
     if (zeichen.length < 8) throw new Error('Zeichenkranz: ' + zeichen.length);
-    const speichen = svg.querySelectorAll('line');
+    const speichen = svg.querySelectorAll('.speiche');
     if (speichen.length !== T.DATA.vorsaetze.bereiche.length)
       throw new Error('Speichen: ' + speichen.length);
+    if (!svg.querySelector('.stern')) throw new Error('Pentagramm ohne Farbklasse');
+    const duenn = [...svg.querySelectorAll('circle,.speiche,.stern')]
+      .filter(e => Number(e.getAttribute('stroke-width')) < 1);
+    if (duenn.length) throw new Error(duenn.length + ' Linien dünner als 1');
     return svg.querySelectorAll('circle').length + ' Ringe, ' + zeichen.length + ' Zeichen, '
-         + speichen.length + ' Speichen';
+         + speichen.length + ' Speichen, alle Linien ≥ 1';
   });
 
   await p.check('Die Münze ist überall dieselbe Gravur', () => {
@@ -135,8 +157,15 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     const kopf = $('#beutel .muenze use');
     if (!kopf || kopf.getAttribute('href') !== '#muenzform') throw new Error('Kopfzeile zeigt etwas anderes');
     const leiste = $('#nav .muenzic use');
-    if (!leiste || leiste.getAttribute('href') !== '#muenzform') throw new Error('Leiste zeigt etwas anderes');
-    return 'Kopfzeile und Leiste';
+    if (!leiste || leiste.getAttribute('href') !== '#muenzform-flach')
+      throw new Error('Leiste zeigt etwas anderes: ' + (leiste && leiste.getAttribute('href')));
+    // Beide Stempel tragen dieselbe Umrisslinie — nur die Füllung trennt sie.
+    const umriss = e => e.querySelector('path').getAttribute('d').replace(/\s+/g, ' ').trim();
+    if (umriss($('#muenzform')) !== umriss($('#muenzform-flach')))
+      throw new Error('Die beiden Münzen haben verschiedene Formen');
+    if ($('#muenzform-flach path').getAttribute('fill') !== 'currentColor')
+      throw new Error('Die Münze der Leiste ist nicht eingefärbt');
+    return 'gleiche Form, eigene Farbe in der Leiste';
   });
 
   /* --- Habits --- */
@@ -316,12 +345,94 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     return 'gemerkt';
   });
 
-  await p.check('Die Kachel zeigt den Fortschritt', () => {
+  await p.check('Ein erreichtes Ziel zeigt seine Restfrist', () => {
     const kachel = $('.kachel');
-    if (!/1 \/ 1 SCHRITTE/.test(kachel.textContent)) throw new Error(kachel.textContent.slice(0,60));
+    if (!kachel.classList.contains('erreicht')) throw new Error('nicht als erreicht markiert');
+    if (!/ERREICHT · NOCH 30 TAGE/.test(kachel.textContent)) throw new Error(kachel.textContent.slice(0,70));
     const balken = kachel.querySelector('.balken i');
-    if (!balken || balken.getAttribute('style') !== 'width:100%') throw new Error('Balken: ' + (balken && balken.getAttribute('style')));
-    return 'voll';
+    if (balken.getAttribute('style') !== 'width:100%') throw new Error('Balken: ' + balken.getAttribute('style'));
+    return '30 Tage Frist';
+  });
+
+  /* --- Skills --- */
+
+  await p.check('Das Regal steht leer, bis ein Skill angelegt ist', () => {
+    click(tab('skills'));
+    if ($$('.buch').length) throw new Error('Bücher ohne Skill');
+    if (!$('#regal')) throw new Error('Kein Regal');
+    return 'leeres Brett';
+  });
+
+  await p.check('Im Regal steht je Skill genau ein Buch', async () => {
+    for (const name of ['Aquarell','Gitarre','Japanisch']){
+      setPrompts([name]);
+      click($('#neuerskill'));
+      await wait(30);
+      click($('#modalblatt .schliessen'));
+      await wait(20);
+    }
+    if (T.DATA.skills.length !== 3) throw new Error('Skills: ' + T.DATA.skills.length);
+    const buecher = $$('.buch');
+    if (buecher.length !== 3) throw new Error('Bücher: ' + buecher.length);
+    const breiten = buecher.map(b => b.getAttribute('style'));
+    if (new Set(breiten).size < 2) throw new Error('Alle Rücken gleich');
+    return '3 Bücher, verschiedene Rücken';
+  });
+
+  await p.check('Ein Buchrücken springt beim Neuzeichnen nicht', () => {
+    const a = T.buchZuschnitt('k1'), b = T.buchZuschnitt('k1'), c = T.buchZuschnitt('k2');
+    if (a.breite !== b.breite || a.hoehe !== b.hoehe) throw new Error('zappelt');
+    if (a.breite === c.breite && a.hoehe === c.hoehe && a.farben[0] === c.farben[0])
+      throw new Error('alle gleich');
+    // Kurze, benachbarte Kennungen sind der harte Fall: sie dürfen
+    // nicht denselben Rücken bekommen.
+    const ruecken = ['k1','k2','k3','k4','k5','k6'].map(x => T.buchZuschnitt(x).farben[0]);
+    if (new Set(ruecken).size < 4) throw new Error('Rücken zu ähnlich: ' + [...new Set(ruecken)].length);
+    return a.breite + '×' + a.hoehe + ' vs ' + c.breite + '×' + c.hoehe;
+  });
+
+  await p.check('Im Regal steht auch Deko', () => {
+    const deko = $('#regal .deko');
+    if (!deko) throw new Error('Keine Deko');
+    for (const teil of ['pflanze','rolle','frosch']){
+      if (!deko.querySelector('.' + teil)) throw new Error(teil + ' fehlt');
+    }
+    if (deko.getAttribute('aria-hidden') !== 'true') throw new Error('Deko nicht als Zierrat gekennzeichnet');
+    return 'Pflanze, Rolle, Frosch';
+  });
+
+  await p.check('Ein Skill trägt mehrere Listen', async () => {
+    click($('[data-skill]'));
+    await wait(25);
+    const k = T.DATA.skills.find(x => x.id === $('[data-skill]').dataset.skill);
+    if (k.listen.length !== 1) throw new Error('Listen: ' + k.listen.length);
+    setPrompts(['Technik']);
+    click($$('#modalblatt .knopf').find(b => b.textContent === '+ LISTE'));
+    await wait(30);
+    if (k.listen.length !== 2) throw new Error('zweite Liste fehlt');
+    if ($$('#modalblatt .listenkopf').length !== 2) throw new Error('nur eine Liste gezeigt');
+    return '2 Listen';
+  });
+
+  await p.check('Jede Liste hat eigene Schritte und zahlt eigene Münzen', async () => {
+    const k = T.DATA.skills[0];
+    const knoepfe = $$('#modalblatt .knopf').filter(b => b.textContent === '+ SCHRITT');
+    if (knoepfe.length !== 2) throw new Error('Schritt-Knöpfe: ' + knoepfe.length);
+    setPrompts(['Lasur üben']);
+    click(knoepfe[0]);
+    await wait(30);
+    setPrompts(['Pinsel pflegen']);
+    click($$('#modalblatt .knopf').filter(b => b.textContent === '+ SCHRITT')[1]);
+    await wait(30);
+    if (k.listen[0].punkte.length !== 1 || k.listen[1].punkte.length !== 1)
+      throw new Error('Schritte landeten in derselben Liste');
+    const vorher = muenzstand();
+    click($('#modalblatt .haken'));
+    await wait(30);
+    if (muenzstand() !== vorher + 1) throw new Error('Münzen: ' + muenzstand());
+    click($('#modalblatt .schliessen'));
+    await wait(20);
+    return 'getrennt, 1 Münze';
   });
 
   /* --- To Do --- */
@@ -379,6 +490,40 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     click($('#modalblatt .schliessen'));
     await wait(20);
     return '1 Monatseintrag';
+  });
+
+  await p.check('Ein To-do lässt sich auf den nächsten Tag schieben', async () => {
+    click(tab('todo'));
+    await wait(25);
+    const montag = T.alsSchluessel(T.tageDerWoche(0)[0]);
+    const dienstag = T.alsSchluessel(T.tageDerWoche(0)[1]);
+    const vorherMo = T.DATA.todo.tage[montag].length;
+    const vorherDi = (T.DATA.todo.tage[dienstag] || []).length;
+    const text = T.DATA.todo.tage[montag][0].text;
+    click($('.seite .schieben'));
+    await wait(30);
+    if (T.DATA.todo.tage[montag].length !== vorherMo - 1) throw new Error('bleibt am Montag');
+    if (T.DATA.todo.tage[dienstag].length !== vorherDi + 1) throw new Error('kommt nicht am Dienstag an');
+    if (T.DATA.todo.tage[dienstag].slice(-1)[0].text !== text) throw new Error('falscher Eintrag verschoben');
+    return '„' + text + '" Mo → Di';
+  });
+
+  await p.check('Verschieben behält den Haken', async () => {
+    const dienstag = T.alsSchluessel(T.tageDerWoche(0)[1]);
+    const pt = T.DATA.todo.tage[dienstag].slice(-1)[0];
+    pt.erledigt = true;
+    const stand = muenzstand();
+    T.render();
+    await wait(20);
+    const zeilen = $$('.seite .punkt');
+    const treffer = zeilen.find(z => z.textContent.includes(pt.text));
+    click(treffer.querySelector('.schieben'));
+    await wait(30);
+    const mittwoch = T.alsSchluessel(T.tageDerWoche(0)[2]);
+    const jetzt = T.DATA.todo.tage[mittwoch].slice(-1)[0];
+    if (!jetzt.erledigt) throw new Error('Haken verloren');
+    if (muenzstand() !== stand) throw new Error('Münzen verändert: ' + muenzstand());
+    return 'Haken und Münzen unberührt';
   });
 
   /* --- Verantwortung --- */
@@ -452,6 +597,79 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     return '0 ist die Grenze';
   });
 
+  /* --- Was von selbst verschwindet --- */
+
+  await p.check('Ein erreichtes Ziel merkt sich, seit wann', () => {
+    const z = { id:'zx', name:'X', text:'', schritte:[{ id:'a', text:'x', erledigt:true, lohn:1 }], fertigSeit:null };
+    T.DATA.ziele.push(z);
+    T.zielStandPflegen();
+    if (!z.fertigSeit) throw new Error('kein Zeitpunkt gesetzt');
+    z.schritte[0].erledigt = false;
+    T.zielStandPflegen();
+    if (z.fertigSeit) throw new Error('Zeitpunkt blieb trotz offenem Schritt');
+    z.schritte[0].erledigt = true;
+    T.zielStandPflegen();
+    return 'gesetzt und wieder gelöscht';
+  });
+
+  await p.check('Ein Ziel ohne Schritte gilt nicht als erreicht', () => {
+    const z = { id:'zleer', name:'Leer', text:'', schritte:[], fertigSeit:null };
+    T.DATA.ziele.push(z);
+    T.zielStandPflegen();
+    if (z.fertigSeit) throw new Error('leeres Ziel wurde als erreicht gewertet');
+    T.DATA.ziele = T.DATA.ziele.filter(x => x !== z);
+    return 'zu Recht offen';
+  });
+
+  await p.check('Nach dreißig Tagen wird das Ziel getilgt', () => {
+    const z = T.DATA.ziele.find(x => x.id === 'zx');
+    const lange = new Date(); lange.setDate(lange.getDate() - T.HALTEFRIST_TAGE - 1);
+    z.fertigSeit = lange.toISOString();
+    const bericht = T.abgelaufenesRaeumen();
+    if (!bericht || bericht.ziele !== 1) throw new Error('nicht geräumt: ' + JSON.stringify(bericht));
+    if (T.DATA.ziele.some(x => x.id === 'zx')) throw new Error('Ziel steht noch');
+    if (!T.DATA.getilgt.includes('zx')) throw new Error('kein Grabstein');
+    return 'weg und vermerkt';
+  });
+
+  await p.check('Einen Tag vorher bleibt es stehen', () => {
+    const z = { id:'zy', name:'Y', text:'', schritte:[{ id:'b', text:'y', erledigt:true, lohn:1 }] };
+    const knapp = new Date(); knapp.setDate(knapp.getDate() - T.HALTEFRIST_TAGE + 1);
+    z.fertigSeit = knapp.toISOString();
+    T.DATA.ziele.push(z);
+    T.abgelaufenesRaeumen();
+    if (!T.DATA.ziele.some(x => x.id === 'zy')) throw new Error('zu früh getilgt');
+    T.DATA.ziele = T.DATA.ziele.filter(x => x.id !== 'zy');
+    return 'Frist eingehalten';
+  });
+
+  await p.check('Vergangene Wochen fallen weg', () => {
+    const alt = '2026-01-05';
+    T.DATA.todo.tage[alt] = [{ id:'altp', text:'vorbei', erledigt:false, lohn:1 }];
+    const bericht = T.abgelaufenesRaeumen();
+    if (!bericht || !bericht.tage) throw new Error('nicht geräumt');
+    if (T.DATA.todo.tage[alt]) throw new Error('alter Tag steht noch');
+    if (!T.DATA.getilgt.includes('altp')) throw new Error('kein Grabstein');
+    return 'Woche geräumt';
+  });
+
+  await p.check('Diese Woche bleibt unangetastet', () => {
+    const heute = T.alsSchluessel(new Date());
+    const vorher = (T.DATA.todo.tage[heute] || []).length;
+    T.abgelaufenesRaeumen();
+    if ((T.DATA.todo.tage[heute] || []).length !== vorher) throw new Error('laufende Woche geräumt');
+    return 'unberührt';
+  });
+
+  await p.check('Ein Backup bringt Getilgtes nicht zurück', () => {
+    const vorher = T.DATA.ziele.length;
+    T.mergeVault({ ziele: [{ id:'zx', name:'Wieder da?', text:'', schritte:[] }],
+                   todo: { tage: { '2026-01-05': [{ id:'altp', text:'vorbei' }] }, monate:{} } });
+    if (T.DATA.ziele.length !== vorher) throw new Error('getilgtes Ziel kam zurück');
+    if (T.DATA.todo.tage['2026-01-05']) throw new Error('getilgte Woche kam zurück');
+    return 'Grabsteine halten';
+  });
+
   /* --- Bestand --- */
 
   await p.check('Alles überlebt das Laden', () => {
@@ -492,7 +710,7 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
       ziele: [{ id:'fremd1', name:'Aus dem Backup', text:'', schritte:[] },
               { id:T.DATA.ziele[0].id, name:'Schon da', text:'', schritte:[] }],
       pflichten: [{ id:'fremd2', name:'Keller', notiz:'' }],
-      todo: { tage: { '2026-03-03': [{ id:'fremdp', text:'z' }] }, monate:{} },
+      todo: { tage: { [T.alsSchluessel(T.tageDerWoche(0)[4])]: [{ id:'fremdp', text:'z' }] }, monate:{} },
     });
     if (bericht.ziele !== 1) throw new Error('Ziele ergänzt: ' + bericht.ziele);
     if (bericht.pflichten !== 1) throw new Error('Pflichten ergänzt: ' + bericht.pflichten);

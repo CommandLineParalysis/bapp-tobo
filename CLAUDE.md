@@ -44,3 +44,17 @@ Benachrichtigungen und wertet nichts aus — sie zählt nur, was getan ist.
   normalisiert das; wer das Schlüsselformat ändert, muss dort nachziehen.
 - **Das Pentagramm liegt im Ring, nicht in der Mitte** — unter dem
   Jahresknoten wäre es schlicht nicht zu sehen.
+- **Zierrat darf nie im Weg sein.** Embleme, gestrichelte Innenrahmen und
+  das Lesebändchen liegen hinter dem Inhalt (`z-index`) und tragen
+  `pointer-events:none`. Wer etwas Schmückendes ergänzt, hält sich daran.
+- **`streuung()` ist FNV-1a, nicht die alte Summe.** Bei kurzen, ähnlichen
+  Kennungen (`k1`, `k2`, …) lagen die oberen Bits der Summe gleich, und alle
+  Bücher bekamen denselben Rücken. Wer daran rechnet, prüft mit genau
+  solchen Kennungen.
+- **Skills sind nicht Ziele mit Extra.** Ein Ziel hat *eine* Liste, ein
+  Skill *mehrere benannte*. Deshalb zwei Bestände und zwei Fenster.
+- **Was getilgt ist, bleibt getilgt.** Erreichte Ziele fallen nach
+  `HALTEFRIST_TAGE`, vergangene Wochen mit dem Wochenwechsel. Ihre
+  Kennungen landen in `DATA.getilgt`, und `mergeVault` überspringt sie —
+  ohne das wäre „gelöscht" nur eine Frage der Zeit bis zur nächsten
+  Wiederherstellung.

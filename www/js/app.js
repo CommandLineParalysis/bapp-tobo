@@ -20,9 +20,11 @@ function leererVault(){
     vorsaetze: { jahr: new Date().getFullYear(), bereiche: [] },
     habits: [],
     ziele: [],
+    skills: [],
     todo: { tage: {}, monate: {} },
     pflichten: [],
     belohnungen: [],
+    getilgt: [],
     modus: 'hell',
     backup: null,
   };
@@ -39,8 +41,8 @@ const state = {
 function vaultPayload(){
   return {
     muenzen: DATA.muenzen, vorsaetze: DATA.vorsaetze, habits: DATA.habits,
-    ziele: DATA.ziele, todo: DATA.todo, pflichten: DATA.pflichten,
-    belohnungen: DATA.belohnungen, modus: DATA.modus, backup: DATA.backup,
+    ziele: DATA.ziele, skills: DATA.skills, todo: DATA.todo, pflichten: DATA.pflichten,
+    belohnungen: DATA.belohnungen, getilgt: DATA.getilgt, modus: DATA.modus, backup: DATA.backup,
   };
 }
 
@@ -88,6 +90,16 @@ function adoptVault(saved){
   v.ziele = (saved.ziele || []).map(z => ({
     id: z.id || neueId('z'), name: String(z.name || ''), text: String(z.text || ''),
     schritte: punkteListe(z.schritte),
+    fertigSeit: typeof z.fertigSeit === 'string' ? z.fertigSeit : null,
+  }));
+
+  /* Ein Skill trägt mehrere Listen, jede mit eigenem Namen — das ist
+     der Unterschied zum Ziel, das genau eine Liste hat. */
+  v.skills = (saved.skills || []).map(k => ({
+    id: k.id || neueId('k'), name: String(k.name || ''), text: String(k.text || ''),
+    listen: (k.listen || []).map(l => ({
+      id: l.id || neueId('li'), name: String(l.name || ''), punkte: punkteListe(l.punkte),
+    })),
   }));
 
   const td = saved.todo || {};
@@ -105,6 +117,7 @@ function adoptVault(saved){
     bild: b.bild || null,
   }));
 
+  v.getilgt = (saved.getilgt || []).filter(x => typeof x === 'string');
   v.modus = saved.modus === 'dunkel' ? 'dunkel' : 'hell';
   v.backup = saved.backup || null;
   return v;
@@ -130,6 +143,64 @@ async function persist(){
   }
 }
 
+/* ---------- Was von selbst verschwindet ----------
+
+   Ein erreichtes Ziel bleibt dreißig Tage stehen und wird dann
+   getilgt. Vergangene Wochen im To-Do fallen mit dem Wochenwechsel
+   weg. Beides landet in DATA.getilgt, damit ein altes Backup es nicht
+   wieder hereinträgt — sonst wäre „gelöscht" nur eine Frage der Zeit
+   bis zur nächsten Wiederherstellung.                              */
+
+const HALTEFRIST_TAGE = 30;
+
+function zielFertig(z){ return z.schritte.length > 0 && z.schritte.every(p => p.erledigt); }
+
+/* Setzt oder löscht den Zeitpunkt, seit dem ein Ziel erreicht ist.
+   Zurück kommt, ob sich etwas geändert hat. */
+function zielStandPflegen(){
+  let geaendert = false;
+  DATA.ziele.forEach(z => {
+    const fertig = zielFertig(z);
+    if (fertig && !z.fertigSeit){ z.fertigSeit = new Date().toISOString(); geaendert = true; }
+    if (!fertig && z.fertigSeit){ z.fertigSeit = null; geaendert = true; }
+  });
+  return geaendert;
+}
+
+function tageSeit(iso){
+  const d = new Date(iso);
+  if (isNaN(d)) return 0;
+  return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+
+function tilgen(id){
+  if (!DATA.getilgt.includes(id)) DATA.getilgt.push(id);
+}
+
+/* Läuft beim Start. Zurück kommt ein Bericht, oder null. */
+function abgelaufenesRaeumen(){
+  const bericht = { ziele:0, tage:0 };
+
+  DATA.ziele = DATA.ziele.filter(z => {
+    if (z.fertigSeit && tageSeit(z.fertigSeit) >= HALTEFRIST_TAGE){
+      tilgen(z.id);
+      bericht.ziele++;
+      return false;
+    }
+    return true;
+  });
+
+  const diesewoche = alsSchluessel(wochenstart(0));
+  Object.keys(DATA.todo.tage).forEach(k => {
+    if (k >= diesewoche) return;
+    DATA.todo.tage[k].forEach(pt => tilgen(pt.id));
+    delete DATA.todo.tage[k];
+    bericht.tage++;
+  });
+
+  return (bericht.ziele || bericht.tage) ? bericht : null;
+}
+
 /* ---------- Zaubermünzen ----------
    Abhaken bringt Münzen, Häkchen wieder wegnehmen zieht sie ab.
    Sonst ließe sich derselbe Punkt beliebig oft abkassieren. */
@@ -151,6 +222,7 @@ function muenzen(n){
 async function punktSchalten(p){
   p.erledigt = !p.erledigt;
   muenzen(p.erledigt ? p.lohn : -p.lohn);
+  zielStandPflegen();
   await persist();
   render();
 }
@@ -216,12 +288,39 @@ function muenzZeichen(klasse){
   return svg;
 }
 
+/* Ein kleines Arkanzeichen, wie es in der Vorlage neben dem Text
+   steht. Es liegt hinter dem Inhalt und nimmt keine Tipps an — Zierrat
+   darf die Bedienung nicht in die Quere kommen. */
+const EMBLEME = [
+  'M20 3 L37 20 L20 37 L3 20 Z M20 9 L31 20 L20 31 L9 20 Z',
+  'M20 4 A16 16 0 1 0 20 36 A16 16 0 1 0 20 4 Z M8 20 H32 M20 8 V32',
+  'M5 12 H35 M5 20 H35 M5 28 H35 M12 5 V35 M28 5 V35',
+  'M20 4 L34 28 H6 Z M20 14 L27 26 H13 Z',
+  'M6 6 H34 V34 H6 Z M6 6 L34 34 M34 6 L6 34',
+];
+function emblem(i){
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('class', 'emblem');
+  svg.setAttribute('viewBox', '0 0 40 40');
+  svg.setAttribute('aria-hidden', 'true');
+  const pfad = document.createElementNS(NS, 'path');
+  pfad.setAttribute('d', EMBLEME[Math.abs(i) % EMBLEME.length]);
+  pfad.setAttribute('fill', 'none');
+  pfad.setAttribute('stroke', 'currentColor');
+  pfad.setAttribute('stroke-width', '1.6');
+  svg.appendChild(pfad);
+  return svg;
+}
+
 function knopf(text, bei, art){
   return h('button', { class: 'knopf' + (art ? ' ' + art : ''), onclick: bei, text });
 }
 
+let emblemZaehler = 0;
 function seite(titel, meta, ...inhalt){
   const s = h('div', { class: 'seite' });
+  s.appendChild(emblem(emblemZaehler++));
   if (titel){
     s.appendChild(h('div', { class: 'seitentitel' },
       h('span', { text: titel }), h('span', { class: 'zier' }),
@@ -232,7 +331,7 @@ function seite(titel, meta, ...inhalt){
 }
 
 /* Eine abhakbare Zeile. Der Lohn ist antippbar, das Löschen auch. */
-function punktZeile(p, beiAenderung){
+function punktZeile(p, beiAenderung, zusatz){
   const zeile = h('div', { class: 'punkt' + (p.erledigt ? ' erledigt' : '') });
   zeile.appendChild(h('button', {
     class: 'haken' + (p.erledigt ? ' an' : ''),
@@ -261,6 +360,7 @@ function punktZeile(p, beiAenderung){
     },
   }, muenzZeichen('muenze'), h('span', { text: String(p.lohn) }));
   zeile.appendChild(lohnfeld);
+  if (zusatz) zeile.appendChild(zusatz);
   zeile.appendChild(h('button', {
     class: 'weg', text: '×', 'aria-label': 'Punkt löschen',
     onclick: async () => {
@@ -278,11 +378,11 @@ function aufraeumen(liste){
   for (let i = liste.length - 1; i >= 0; i--) if (liste[i].geloescht) liste.splice(i, 1);
 }
 
-function punkteBlock(liste, beiAenderung, platzhalter){
+function punkteBlock(liste, beiAenderung, platzhalter, zusatzFuer){
   aufraeumen(liste);
   const block = h('div', {});
   if (!liste.length) block.appendChild(h('div', { class:'leer', text: platzhalter || 'Noch nichts eingetragen.' }));
-  liste.forEach(p => block.appendChild(punktZeile(p, beiAenderung)));
+  liste.forEach(p => block.appendChild(punktZeile(p, beiAenderung, zusatzFuer && zusatzFuer(p))));
   return block;
 }
 
@@ -324,7 +424,7 @@ function fensterAuffrischen(){
 /* Gebrochene Schrift liest sich in Versalien schlecht — deshalb hier
    gemischt statt durchgehend groß. */
 const TITEL = {
-  vorsaetze:'Jahresvorsätze', habits:'Habits', ziele:'Ziele',
+  vorsaetze:'Jahresvorsätze', habits:'Habits', ziele:'Ziele', skills:'Skills',
   todo:'To Do', pflichten:'Verantwortung', belohnungen:'Belohnungen',
   einstellungen:'Einstellungen',
 };
@@ -338,8 +438,9 @@ function go(screen){
 function render(){
   const main = document.getElementById('main');
   main.textContent = '';
+  emblemZaehler = 0;
   const bauer = {
-    vorsaetze: vorsaetzeSeite, habits: habitsSeite, ziele: zieleSeite,
+    vorsaetze: vorsaetzeSeite, habits: habitsSeite, ziele: zieleSeite, skills: skillsSeite,
     todo: todoSeite, pflichten: pflichtenSeite, belohnungen: belohnungenSeite,
     einstellungen: einstellungenSeite,
   }[state.screen] || todoSeite;
@@ -375,6 +476,7 @@ function vorsaetzeSeite(){
   const radius = n > 6 ? 37 : 34;
   const feld = h('div', { class:'kreisfeld', id:'kreisfeld' });
   feld.appendChild(zirkel(v.bereiche.map((_, i) => winkelFuer(i, n)), radius));
+  emblemZaehler++;
 
   v.bereiche.forEach((b, i) => {
     const w = winkelFuer(i, n);
@@ -440,11 +542,14 @@ function zirkel(winkel, radius){
     svg.appendChild(e);
     return e;
   };
-  const tinte = 'var(--siegel)', blass = 'var(--linie)';
 
-  [radius + 9, radius + 5.5, radius - 12, 13].forEach((r, i) => {
-    el('circle', { cx:50, cy:50, r, fill:'none', stroke: i % 2 ? blass : tinte,
-                   'stroke-width': i === 0 ? .8 : .4, 'vector-effect':'non-scaling-stroke' });
+  /* Kräftigere Linien als zuvor, und die Töne gestaffelt: außen das
+     Mittelblau, innen das hellere Türkis. Die Farben stehen als Klassen
+     im Stylesheet, damit sie im dunklen Modus mitwandern. */
+  [[radius + 9, 'stark', 2.2], [radius + 5.5, 'fein', 1.1],
+   [radius - 12, 'fein', 1.4], [13, 'stark', 1.8]].forEach(([r, klasse, dicke]) => {
+    el('circle', { cx:50, cy:50, r, fill:'none', class: klasse,
+                   'stroke-width': dicke, 'vector-effect':'non-scaling-stroke' });
   });
 
   // Der Zeichenkranz zwischen den beiden äußeren Ringen
@@ -453,8 +558,7 @@ function zirkel(winkel, radius){
     const w = (i / ZIRKELZEICHEN.length) * Math.PI * 2 - Math.PI / 2;
     const t = el('text', {
       x: 50 + Math.cos(w) * kranz, y: 50 + Math.sin(w) * kranz,
-      fill: tinte, 'font-size': 3.6, 'text-anchor':'middle', 'dominant-baseline':'central',
-      opacity:.75,
+      class:'zeichen', 'font-size': 4.2, 'text-anchor':'middle', 'dominant-baseline':'central',
     });
     t.textContent = z;
   });
@@ -468,19 +572,26 @@ function zirkel(winkel, radius){
     const w = (i * 2 / 5) * Math.PI * 2 - Math.PI / 2;
     p.push((50 + Math.cos(w) * stern).toFixed(2) + ',' + (50 + Math.sin(w) * stern).toFixed(2));
   }
-  el('polygon', { points: p.join(' '), fill:'none', stroke: tinte, 'stroke-width':.45,
-                  'vector-effect':'non-scaling-stroke', opacity:.85 });
+  el('polygon', { points: p.join(' '), fill:'none', class:'stern', 'stroke-width':1.6,
+                  'stroke-linejoin':'round', 'vector-effect':'non-scaling-stroke' });
 
   // Die Speichen zu den Knoten, mit einem Ring dort, wo sie den
   // inneren Kreis durchstoßen
   winkel.forEach(w => {
     el('line', { x1: 50 + Math.cos(w) * 13, y1: 50 + Math.sin(w) * 13,
                  x2: 50 + Math.cos(w) * radius, y2: 50 + Math.sin(w) * radius,
-                 stroke: tinte, 'stroke-width':.4, 'vector-effect':'non-scaling-stroke', opacity:.7 });
+                 class:'speiche', 'stroke-width':1.3, 'vector-effect':'non-scaling-stroke' });
     el('circle', { cx: 50 + Math.cos(w) * (radius - 12), cy: 50 + Math.sin(w) * (radius - 12),
-                   r:1.5, fill:'none', stroke: tinte, 'stroke-width':.4,
+                   r:2.2, fill:'none', class:'fein', 'stroke-width':1.3,
                    'vector-effect':'non-scaling-stroke' });
   });
+  // Ein paar Strahlen zwischen den Speichen, wie in der Vorlage
+  for (let i = 0; i < 24; i++){
+    const w = (i / 24) * Math.PI * 2;
+    el('line', { x1: 50 + Math.cos(w) * (radius + 5.5), y1: 50 + Math.sin(w) * (radius + 5.5),
+                 x2: 50 + Math.cos(w) * (radius + 9), y2: 50 + Math.sin(w) * (radius + 9),
+                 class:'fein', 'stroke-width': i % 2 ? .7 : 1.4, 'vector-effect':'non-scaling-stroke' });
+  }
   return svg;
 }
 
@@ -493,11 +604,16 @@ function zieleSeite(){
   } else {
     const gitter = h('div', { class:'kacheln', id:'zielkacheln' });
     DATA.ziele.forEach(z => {
+      const rest = z.fertigSeit ? HALTEFRIST_TAGE - tageSeit(z.fertigSeit) : null;
       gitter.appendChild(h('button', {
-        class:'kachel', onclick: () => zeigeFenster({ art:'ziel', id:z.id }),
+        class:'kachel' + (z.fertigSeit ? ' erreicht' : ''),
+        onclick: () => zeigeFenster({ art:'ziel', id:z.id }),
       },
+        emblem(emblemZaehler++),
         h('h3', { text: z.name || 'Ohne Namen' }),
-        h('div', { class:'zeile', text: erledigtVon(z.schritte) + ' / ' + z.schritte.length + ' SCHRITTE' }),
+        h('div', { class:'zeile', text: z.fertigSeit
+          ? 'ERREICHT · NOCH ' + Math.max(0, rest) + ' TAGE'
+          : erledigtVon(z.schritte) + ' / ' + z.schritte.length + ' SCHRITTE' }),
         fortschritt(z.schritte),
         z.text ? h('div', { class:'vorschau', text: z.text }) : null));
     });
@@ -515,6 +631,129 @@ function zieleSeite(){
   return wurzel;
 }
 
+/* ---------- 4. Skills ----------
+   Ein Regal, in dem für jeden Skill ein Buch steht. Die Rücken sind
+   verschieden breit und hoch, damit das Regal nach Sammlung aussieht
+   und nicht nach Tabelle; Breite und Farbe hängen an der Kennung,
+   damit sie beim Neuzeichnen nicht springen. */
+
+const BUCHFARBEN = [
+  ['#7A2E2A','#C8A44A'], ['#1F4F63','#9FD8E2'], ['#3E5D2E','#D2C07A'],
+  ['#4A2C5C','#C9A6DE'], ['#8A4B1E','#EBC98A'], ['#23404F','#79C2CF'],
+];
+
+/* FNV-1a statt der einfachen Summe: bei kurzen, ähnlichen Kennungen
+   ("k1", "k2", …) lagen die oberen Bits der Summe alle gleich, und
+   damit bekamen alle Bücher denselben Rücken. */
+function streuung(text){
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++){
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h;
+}
+
+function buchZuschnitt(id){
+  const h = streuung(id);
+  return {
+    breite: 22 + (h % 4) * 5,
+    hoehe: 78 + ((h >>> 5) % 5) * 6,
+    farben: BUCHFARBEN[(h >>> 11) % BUCHFARBEN.length],
+    neigung: ((h >>> 17) % 5) - 2,
+  };
+}
+
+function skillsSeite(){
+  const wurzel = h('div', {});
+  const regal = h('div', { class:'regal', id:'regal' });
+
+  // Die Bücher werden auf Bretter verteilt, damit das Regal mitwächst.
+  const proBrett = 5;
+  const bretter = [];
+  DATA.skills.forEach((k, i) => {
+    if (i % proBrett === 0) bretter.push([]);
+    bretter[bretter.length - 1].push(k);
+  });
+  // Mindestens zwei Bretter: ein einzelnes Brett sieht nach Ablage aus,
+  // zwei nach Regal.
+  while (bretter.length < 2) bretter.push([]);
+
+  bretter.forEach((buecher, bi) => {
+    const brett = h('div', { class:'brett' });
+    const reihe = h('div', { class:'buchreihe' });
+    buecher.forEach(k => {
+      const z = buchZuschnitt(k.id);
+      const offen = k.listen.reduce((n, l) => n + l.punkte.length, 0);
+      const fertig = k.listen.reduce((n, l) => n + erledigtVon(l.punkte), 0);
+      reihe.appendChild(h('button', {
+        class:'buch', 'data-skill': k.id,
+        style:'width:' + z.breite + 'px;height:' + z.hoehe + 'px;' +
+              '--ruecken:' + z.farben[0] + ';--praegung:' + z.farben[1] + ';' +
+              'transform:rotate(' + z.neigung + 'deg)',
+        title: k.name + ' — ' + fertig + '/' + offen,
+        onclick: () => zeigeFenster({ art:'skill', id:k.id }),
+      },
+        h('span', { class:'titel', text: k.name || '…' }),
+        h('span', { class:'marke', text: offen ? fertig + '/' + offen : '' })));
+    });
+    // Auf dem letzten Brett steht die Deko neben den Büchern.
+    if (bi === bretter.length - 1) reihe.appendChild(regalDeko());
+    brett.appendChild(reihe);
+    brett.appendChild(h('div', { class:'brettkante' }));
+    regal.appendChild(brett);
+  });
+
+  wurzel.appendChild(regal);
+  if (!DATA.skills.length){
+    wurzel.appendChild(seite(null, null,
+      h('div', { class:'leer', text:'Noch kein Buch im Regal. Was willst du lernen?' })));
+  }
+  wurzel.appendChild(h('button', {
+    class:'neu', id:'neuerskill', text:'+ Skill',
+    onclick: async () => {
+      const name = (prompt('Welcher Skill?') || '').trim();
+      if (!name) return;
+      const neu = { id: neueId('k'), name, text:'',
+                    listen: [{ id: neueId('li'), name:'Grundlagen', punkte: [] }] };
+      DATA.skills.push(neu);
+      await persist();
+      zeigeFenster({ art:'skill', id:neu.id });
+    },
+  }));
+  return wurzel;
+}
+
+/* Die drei Stücke, die im Regal stehen: eine Topfpflanze, eine
+   Pergamentrolle und ein Frosch. Reiner Zierrat, nicht anklickbar. */
+function regalDeko(){
+  const deko = h('div', { class:'deko', 'aria-hidden':'true' });
+  deko.innerHTML = `
+    <svg viewBox="0 0 34 64" class="pflanze">
+      <path d="M17 44 C17 30 9 28 7 18 C15 21 17 30 17 36" fill="none" stroke="var(--mittel)" stroke-width="2.4"/>
+      <path d="M17 44 C17 32 25 29 28 20 C20 23 18 31 18 38" fill="none" stroke="var(--hell)" stroke-width="2.4"/>
+      <circle cx="7" cy="17" r="3.1" fill="var(--schimmer)"/>
+      <circle cx="28" cy="19" r="2.6" fill="var(--schimmer)"/>
+      <path d="M7 44 H27 L25 60 H9 Z" fill="#8A5B2E"/>
+      <path d="M6 42 H28 V47 H6 Z" fill="#A9743E"/>
+    </svg>
+    <svg viewBox="0 0 46 30" class="rolle">
+      <rect x="5" y="7" width="36" height="16" rx="2" fill="#E9DCB8"/>
+      <path d="M9 12 H33 M9 15.5 H30 M9 19 H27" stroke="#8B7A55" stroke-width="1.2"/>
+      <circle cx="5" cy="15" r="5" fill="#CDBA8E"/><circle cx="41" cy="15" r="5" fill="#CDBA8E"/>
+      <circle cx="5" cy="15" r="1.7" fill="#8B7A55"/><circle cx="41" cy="15" r="1.7" fill="#8B7A55"/>
+    </svg>
+    <svg viewBox="0 0 40 32" class="frosch">
+      <path d="M4 30 C4 14 11 7 20 7 C29 7 36 14 36 30 Z" fill="#5A3A2E"/>
+      <ellipse cx="20" cy="25" rx="10" ry="6" fill="#E8DCC0"/>
+      <circle cx="12" cy="9" r="5" fill="#5A3A2E"/><circle cx="28" cy="9" r="5" fill="#5A3A2E"/>
+      <circle cx="12" cy="8" r="3.2" fill="#E8913C"/><circle cx="28" cy="8" r="3.2" fill="#E8913C"/>
+      <circle cx="12" cy="8" r="1.3" fill="#20120C"/><circle cx="28" cy="8" r="1.3" fill="#20120C"/>
+      <path d="M14 20 H26" stroke="#20120C" stroke-width="1.6"/>
+    </svg>`;
+  return deko;
+}
+
 /* ---------- 5. Verantwortung ---------- */
 
 function pflichtenSeite(){
@@ -528,6 +767,7 @@ function pflichtenSeite(){
       gitter.appendChild(h('button', {
         class:'kachel', onclick: () => zeigeFenster({ art:'pflicht', id:p.id }),
       },
+        emblem(emblemZaehler++),
         h('h3', { text: p.name || 'Ohne Namen' }),
         p.notiz ? h('div', { class:'vorschau', text: p.notiz })
                 : h('div', { class:'zeile', text:'OHNE NOTIZ' })));
@@ -572,13 +812,20 @@ function todoSeite(){
     const liste = DATA.todo.tage[s] || (DATA.todo.tage[s] = []);
     aufraeumen(liste);
     const blatt = seite(null, null);
-    if (s === heute) blatt.classList.add('heute');
+    if (s === heute){
+      blatt.classList.add('heute');
+      blatt.appendChild(h('span', { class:'baendchen', 'aria-hidden':'true' }));
+    }
     blatt.appendChild(h('div', { class:'tagkopf' },
       h('span', { class:'wt', text: WOCHENTAGE_LANG[i] }),
       h('span', { class:'dat', text: kurzDatum(d) }),
       h('span', { class:'zier', style:'flex:1;height:1px;background:rgba(46,36,24,.28)' }),
       h('span', { class:'dat', text: liste.length ? erledigtVon(liste) + '/' + liste.length : '' })));
-    blatt.appendChild(punkteBlock(liste, render, 'Nichts vorgenommen.'));
+    blatt.appendChild(punkteBlock(liste, render, 'Nichts vorgenommen.', pt => h('button', {
+      class:'schieben', text:'›', 'aria-label':'Auf morgen verschieben',
+      title:'Auf ' + WOCHENTAGE_LANG[(i + 1) % 7] + ' verschieben',
+      onclick: () => punktVerschieben(pt, s),
+    })));
     blatt.appendChild(h('div', { class:'reihe' },
       h('button', { class:'knopf', 'data-tag': s, text:'+ EINTRAG', onclick: async () => {
         const text = (prompt(WOCHENTAGE_LANG[i] + ' — was steht an?') || '').trim();
@@ -589,6 +836,21 @@ function todoSeite(){
     wurzel.appendChild(blatt);
   });
   return wurzel;
+}
+
+/* Einen Eintrag auf den nächsten Tag schieben. Die Kennung bleibt, der
+   Haken auch — verschoben wird die Aufgabe, nicht ihr Zustand. */
+async function punktVerschieben(p, vonSchluessel){
+  const quelle = DATA.todo.tage[vonSchluessel] || [];
+  const i = quelle.indexOf(p);
+  if (i < 0) return;
+  const d = new Date(vonSchluessel + 'T12:00:00');
+  d.setDate(d.getDate() + 1);
+  const ziel = alsSchluessel(d);
+  quelle.splice(i, 1);
+  (DATA.todo.tage[ziel] || (DATA.todo.tage[ziel] = [])).push(p);
+  await persist();
+  render();
 }
 
 function monatsName(d){
@@ -873,6 +1135,7 @@ function zeigeFenster(was){
   const bau = {
     bereich: fensterBereich, ziel: fensterZiel, pflicht: fensterPflicht,
     monat: fensterMonat, habit: fensterHabit, belohnung: fensterBelohnung,
+    skill: fensterSkill,
   }[was.art];
   if (bau) bau(was.id);
 }
@@ -936,6 +1199,62 @@ function fensterZiel(id){
         await persist(); fensterAuffrischen();
       }, 'voll')));
     fensterKopfAktionen(blatt, z, DATA.ziele, 'Ziel');
+  });
+}
+
+function fensterSkill(id){
+  const k = DATA.skills.find(x => x.id === id);
+  if (!k) return fensterSchliessen();
+  fensterOeffnen(k.name || 'Skill', blatt => {
+    const feld = h('textarea', { id:'skilltext', placeholder:'Worum geht es? Woran merkst du, dass du es kannst?' });
+    feld.value = k.text;
+    feld.oninput = () => { k.text = feld.value; };
+    feld.onchange = () => persist();
+    blatt.appendChild(h('div', { class:'feld' }, h('label', { text:'NOTIZ' }), feld));
+
+    k.listen.forEach(liste => {
+      aufraeumen(liste.punkte);
+      const kopf = h('div', { class:'listenkopf' },
+        h('button', {
+          class:'listenname', text: liste.name || 'Ohne Namen',
+          onclick: async () => {
+            const neu = (prompt('Liste umbenennen:', liste.name) || '').trim();
+            if (!neu) return;
+            liste.name = neu;
+            await persist(); fensterAuffrischen();
+          },
+        }),
+        h('span', { class:'seitenmeta', text: erledigtVon(liste.punkte) + '/' + liste.punkte.length }),
+        h('button', {
+          class:'weg', text:'×', 'aria-label':'Liste löschen',
+          onclick: async () => {
+            if (!confirm('Liste „' + liste.name + '" mitsamt Punkten löschen?')) return;
+            liste.punkte.filter(pt => pt.erledigt).forEach(pt => muenzen(-pt.lohn));
+            k.listen = k.listen.filter(l => l !== liste);
+            await persist(); fensterAuffrischen();
+          },
+        }));
+      blatt.appendChild(kopf);
+      blatt.appendChild(fortschritt(liste.punkte));
+      blatt.appendChild(punkteBlock(liste.punkte, fensterAuffrischen, 'Noch nichts in dieser Liste.'));
+      blatt.appendChild(h('div', { class:'reihe' },
+        knopf('+ SCHRITT', async () => {
+          const t = (prompt(liste.name + ' — welcher Schritt?') || '').trim();
+          if (!t) return;
+          liste.punkte.push(neuerPunkt(t));
+          await persist(); fensterAuffrischen();
+        })));
+    });
+
+    blatt.appendChild(h('div', { class:'reihe' },
+      knopf('+ LISTE', async () => {
+        const name = (prompt('Wie heißt die neue Liste?') || '').trim();
+        if (!name) return;
+        k.listen.push({ id: neueId('li'), name, punkte: [] });
+        await persist(); fensterAuffrischen();
+      }, 'voll')));
+
+    fensterKopfAktionen(blatt, k, DATA.skills, 'Skill');
   });
 }
 
@@ -1183,24 +1502,36 @@ async function runAutoBackup(manuell){
    gelöscht — es kommt nur dazu, was hier fehlt. Die Münzen bleiben,
    wie sie hier stehen: was ausgegeben wurde, ist ausgegeben. */
 function mergeVault(manifest){
-  const bericht = { bereiche:0, habits:0, ziele:0, pflichten:0, belohnungen:0, punkte:0 };
+  const bericht = { bereiche:0, habits:0, ziele:0, skills:0, pflichten:0, belohnungen:0, punkte:0 };
   const fremd = adoptVault(manifest);
 
+  const getilgt = new Set(DATA.getilgt);
   const dazu = (hier, dort, zaehler) => {
     const bekannt = new Set(hier.map(x => x.id));
-    dort.forEach(x => { if (!bekannt.has(x.id)){ hier.push(x); bericht[zaehler]++; } });
+    dort.forEach(x => {
+      if (bekannt.has(x.id) || getilgt.has(x.id)) return;
+      hier.push(x);
+      bericht[zaehler]++;
+    });
   };
   dazu(DATA.vorsaetze.bereiche, fremd.vorsaetze.bereiche, 'bereiche');
   dazu(DATA.habits, fremd.habits, 'habits');
   dazu(DATA.ziele, fremd.ziele, 'ziele');
+  dazu(DATA.skills, fremd.skills, 'skills');
   dazu(DATA.pflichten, fremd.pflichten, 'pflichten');
   dazu(DATA.belohnungen, fremd.belohnungen, 'belohnungen');
 
+  const diesewoche = alsSchluessel(wochenstart(0));
   for (const [wo, quelle] of [['tage', fremd.todo.tage], ['monate', fremd.todo.monate]]){
     Object.entries(quelle).forEach(([k, liste]) => {
+      if (wo === 'tage' && k < diesewoche) return;   // vergangene Wochen sind erledigt
       const hier = DATA.todo[wo][k] || (DATA.todo[wo][k] = []);
       const bekannt = new Set(hier.map(p => p.id));
-      liste.forEach(p => { if (!bekannt.has(p.id)){ hier.push(p); bericht.punkte++; } });
+      liste.forEach(p => {
+        if (bekannt.has(p.id) || getilgt.has(p.id)) return;
+        hier.push(p);
+        bericht.punkte++;
+      });
     });
   }
   return bericht;
@@ -1211,6 +1542,7 @@ function berichtText(b, bilder){
   if (b.bereiche) teile.push(b.bereiche + ' Lebensbereiche');
   if (b.habits) teile.push(b.habits + ' Gewohnheiten');
   if (b.ziele) teile.push(b.ziele + ' Ziele');
+  if (b.skills) teile.push(b.skills + ' Skills');
   if (b.pflichten) teile.push(b.pflichten + ' Bereiche');
   if (b.belohnungen) teile.push(b.belohnungen + ' Belohnungen');
   if (b.punkte) teile.push(b.punkte + ' To-dos');
@@ -1283,6 +1615,9 @@ async function start(){
     DATA = leererVault();
   }
   modusAnwenden();
+  zielStandPflegen();
+  const geraeumt = abgelaufenesRaeumen();
+  if (geraeumt) await persist();
   render();
 
   if (Store.isNative && window.Capacitor.Plugins.App){

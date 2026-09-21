@@ -22,13 +22,19 @@
   --blatt-tief:#E6D6AF;
   --tinte:#2E2418;
   --tinte-blass:#6E5D45;
-  --siegel:#8E2B22;
+  --petrol:#0F5259;
   --rahmen:#4A3A24;
   --beschlag:#8A6A3A;
   --linie:rgba(46,36,24,.26);
   --feld:rgba(255,255,255,.42);
   --glanz:rgba(255,255,255,.55);
   --schlagschatten:rgba(74,58,36,.28);
+  /* Die Blau- und Türkistöne des Ritualkreises und der Zierstücke.
+     Eine Familie, vier Helligkeiten — mehr braucht es nicht. */
+  --tief:#0B3A42;
+  --mittel:#1C7C8C;
+  --hell:#3DA5B5;
+  --schimmer:#7FD4DE;
   color-scheme:light;
 }
 
@@ -39,13 +45,17 @@
   --blatt-tief:#1F0E24;
   --tinte:#EADDBF;
   --tinte-blass:#A28FA8;
-  --siegel:#E0705C;
+  --petrol:#5FC6D2;
   --rahmen:#0C0610;
   --beschlag:#8E6BA0;
   --linie:rgba(234,221,191,.22);
   --feld:rgba(255,255,255,.07);
   --glanz:rgba(255,255,255,.1);
   --schlagschatten:rgba(0,0,0,.6);
+  --tief:#0E4B55;
+  --mittel:#2E9CAE;
+  --hell:#5FC6D2;
+  --schimmer:#A8E8F0;
   color-scheme:dark;
 }
 
@@ -84,7 +94,7 @@ header{
 }
 .kopftitel{
   font-family:'UnifrakturCook',serif;font-weight:700;font-size:23px;line-height:1.1;
-  letter-spacing:.01em;color:var(--siegel);
+  letter-spacing:.01em;color:var(--petrol);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .headright{display:flex;flex-direction:row;align-items:center;gap:7px;flex:none}
@@ -104,7 +114,7 @@ header{
   background:var(--feld);border:1.5px solid var(--rahmen);color:var(--tinte);
   font-family:'Cinzel',serif;font-size:14px;line-height:1;
 }
-.iconbtn:focus-visible{outline:2px solid var(--siegel);outline-offset:2px}
+.iconbtn:focus-visible{outline:2px solid var(--petrol);outline-offset:2px}
 
 /* --- Hauptfläche ------------------------------------------- */
 
@@ -113,6 +123,7 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
 /* Das Blatt mit Rahmen und Eckbeschlägen. Die Beschläge sind acht
    kurze Striche in den vier Ecken — gezeichnet als Verlaufsflächen,
    damit kein Bild nachgeladen werden muss. */
+.seite > *{position:relative;z-index:2}
 .seite{
   position:relative;
   background:
@@ -123,8 +134,16 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
   border:2px solid var(--rahmen);
   box-shadow:0 5px 14px var(--schlagschatten);
 }
+.seite > .emblem{
+  position:absolute;right:8px;bottom:7px;width:46px;height:46px;
+  pointer-events:none;opacity:.14;color:var(--tief);
+}
+.seite::after{
+  content:'';position:absolute;inset:7px;pointer-events:none;
+  border:1px dashed var(--linie);opacity:.55;
+}
 .seite::before{
-  content:'';position:absolute;inset:3px;pointer-events:none;
+  content:'';position:absolute;inset:3px;pointer-events:none;z-index:1;
   --b:var(--beschlag);
   background:
     linear-gradient(var(--b),var(--b)) left    top/11px 2px no-repeat,
@@ -139,14 +158,14 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
 
 .seitentitel{
   font-family:'UnifrakturCook',serif;font-weight:700;font-size:17px;line-height:1.15;
-  color:var(--siegel);margin:0 0 5px;display:flex;align-items:center;gap:7px;
+  color:var(--petrol);margin:0 0 5px;display:flex;align-items:center;gap:7px;
 }
 /* Die Zierlinie endet in einer Raute — das kleine Ding macht den
    Unterschied zwischen Kasten und Buchseite. */
 .zier{flex:1;height:1px;background:var(--linie);position:relative}
 .zier::after{
   content:'';position:absolute;right:-1px;top:-2.5px;width:6px;height:6px;
-  background:var(--siegel);transform:rotate(45deg);
+  background:var(--petrol);transform:rotate(45deg);
 }
 .seitenmeta{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;color:var(--tinte-blass)}
 
@@ -162,14 +181,14 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
 .haken{
   width:26px;height:26px;flex:none;cursor:pointer;padding:0;position:relative;
   background:var(--feld);border:1.5px solid var(--tinte);
-  font-family:'Cinzel',serif;font-size:15px;line-height:1;color:var(--siegel);
+  font-family:'Cinzel',serif;font-size:15px;line-height:1;color:var(--petrol);
 }
 .haken::after{
   content:'';position:absolute;inset:2px;border:1px solid var(--linie);pointer-events:none;
 }
-.haken.an{background:var(--siegel);color:var(--blatt);border-color:var(--siegel)}
+.haken.an{background:var(--petrol);color:var(--blatt);border-color:var(--petrol)}
 .haken.an::after{border-color:rgba(255,255,255,.35)}
-.haken:focus-visible{outline:2px solid var(--siegel);outline-offset:2px}
+.haken:focus-visible{outline:2px solid var(--petrol);outline-offset:2px}
 .punkt .text{
   flex:1;font-family:'Parisienne',cursive;font-size:21px;line-height:1.3;
   color:var(--tinte);cursor:pointer;word-break:break-word;
@@ -190,18 +209,18 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
   font-size:10.5px;letter-spacing:.08em;padding:8px 12px;
   background:var(--feld);border:1.5px solid var(--rahmen);color:var(--tinte);
 }
-.knopf.voll{background:var(--siegel);border-color:var(--siegel);color:var(--blatt)}
+.knopf.voll{background:var(--petrol);border-color:var(--petrol);color:var(--blatt)}
 .knopf.still{border-color:var(--linie);color:var(--tinte-blass)}
-.knopf.warn{border-color:var(--siegel);color:var(--siegel)}
+.knopf.warn{border-color:var(--petrol);color:var(--petrol)}
 .knopf:disabled{opacity:.42;cursor:default}
-.knopf:focus-visible{outline:2px solid var(--siegel);outline-offset:2px}
+.knopf:focus-visible{outline:2px solid var(--petrol);outline-offset:2px}
 
 .reihe{display:flex;gap:8px;flex-wrap:wrap;margin:11px 0 0}
 
 /* Der große Knopf am Fuß einer Seite: Siegellack mit Beschlag. */
 .neu{
   display:block;width:100%;margin:14px 0 0;cursor:pointer;position:relative;
-  background:var(--siegel);color:var(--blatt);border:2px solid var(--rahmen);padding:11px;
+  background:var(--petrol);color:var(--blatt);border:2px solid var(--rahmen);padding:11px;
   font-family:'UnifrakturCook',serif;font-weight:700;font-size:18px;line-height:1.2;
   box-shadow:0 4px 10px var(--schlagschatten);
 }
@@ -211,14 +230,20 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
 
 .kreisfeld{position:relative;width:100%;aspect-ratio:1/1;max-height:66vh;margin:10px auto 0}
 .kreisfeld svg.zirkel{position:absolute;inset:0;width:100%;height:100%}
+.kreisfeld svg.zirkel .stark{stroke:var(--mittel)}
+.kreisfeld svg.zirkel .fein{stroke:var(--hell)}
+.kreisfeld svg.zirkel .zeichen{fill:var(--mittel)}
+.kreisfeld svg.zirkel .stern{stroke:var(--schimmer)}
+.kreisfeld svg.zirkel .speiche{stroke:var(--tief)}
 .knoten{
   position:absolute;transform:translate(-50%,-50%);cursor:pointer;
   width:80px;min-height:80px;border-radius:50%;padding:7px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
   background:radial-gradient(circle at 36% 30%, var(--blatt), var(--blatt-tief));
-  border:2px solid var(--siegel);color:var(--tinte);
+  border:2px solid var(--petrol);color:var(--tinte);
   box-shadow:0 3px 10px var(--schlagschatten);
 }
+.knoten{border-color:var(--mittel)}
 .knoten .name{font-family:'UnifrakturCook',serif;font-weight:700;font-size:12px;
   text-align:center;line-height:1.05;overflow-wrap:break-word;hyphens:auto}
 .knoten .stand{font-family:'IBM Plex Mono',monospace;font-size:8.5px;color:var(--tinte-blass)}
@@ -247,14 +272,17 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
     linear-gradient(var(--b),var(--b)) right bottom/9px 2px no-repeat,
     linear-gradient(var(--b),var(--b)) right bottom/2px 9px no-repeat;
 }
+.kachel > .emblem{position:absolute;right:5px;bottom:4px;width:38px;height:38px;
+  pointer-events:none;opacity:.13;color:var(--tief)}
+.kachel > *{position:relative;z-index:2}
 .kachel h3{margin:0;font-family:'UnifrakturCook',serif;font-weight:700;font-size:15px;
-  line-height:1.12;color:var(--siegel)}
+  line-height:1.12;color:var(--petrol)}
 .kachel .zeile{margin:4px 0 0;font-family:'IBM Plex Mono',monospace;font-size:9px;
   letter-spacing:.05em;color:var(--tinte-blass)}
 .kachel .vorschau{margin:5px 0 0;font-family:'Parisienne',cursive;font-size:17px;line-height:1.25;
   color:var(--tinte-blass);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .balken{height:5px;margin:6px 0 0;background:var(--linie);border:1px solid var(--linie)}
-.balken i{display:block;height:100%;background:var(--siegel)}
+.balken i{display:block;height:100%;background:var(--petrol)}
 
 /* --- Belohnungen --------------------------------------------- */
 
@@ -280,9 +308,29 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
 }
 .monatsknopf::after{content:'';position:absolute;inset:3px;border:1px solid rgba(90,54,13,.5);pointer-events:none}
 .tagkopf{display:flex;align-items:center;gap:7px}
-.tagkopf .wt{font-family:'UnifrakturCook',serif;font-weight:700;font-size:17px;color:var(--siegel)}
+.tagkopf .wt{font-family:'UnifrakturCook',serif;font-weight:700;font-size:17px;color:var(--petrol)}
 .tagkopf .dat{font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--tinte-blass)}
-.seite.heute{box-shadow:0 5px 14px var(--schlagschatten), 0 0 0 3px var(--beschlag)}
+.seite.heute{box-shadow:0 5px 14px var(--schlagschatten), 0 0 0 3px var(--mittel)}
+/* Das Lesebändchen steckt am heutigen Blatt — wie im aufgeschlagenen
+   Buch der Vorlage. */
+.seite.heute::before{
+  background:
+    linear-gradient(var(--mittel),var(--mittel)) left top/11px 2px no-repeat,
+    linear-gradient(var(--mittel),var(--mittel)) left top/2px 11px no-repeat,
+    linear-gradient(var(--mittel),var(--mittel)) right top/11px 2px no-repeat,
+    linear-gradient(var(--mittel),var(--mittel)) right top/2px 11px no-repeat,
+    linear-gradient(var(--mittel),var(--mittel)) left bottom/11px 2px no-repeat,
+    linear-gradient(var(--mittel),var(--mittel)) left bottom/2px 11px no-repeat,
+    linear-gradient(var(--mittel),var(--mittel)) right bottom/11px 2px no-repeat,
+    linear-gradient(var(--mittel),var(--mittel)) right bottom/2px 11px no-repeat;
+}
+/* Unten heraus, nicht oben: oben lag es über dem Tageszähler. */
+.baendchen{
+  position:absolute;bottom:-17px;right:24px;width:14px;height:30px;pointer-events:none;z-index:3;
+  background:linear-gradient(180deg, var(--tief), var(--mittel));
+  clip-path:polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
+  box-shadow:0 2px 4px var(--schlagschatten);
+}
 
 /* --- Habits --------------------------------------------------- */
 
@@ -293,12 +341,12 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
   font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.04em;
 }
 .tagfeld .zeichen{display:block;font-family:'Cinzel',serif;font-size:14px;line-height:1.1;margin-top:2px}
-.tagfeld.an{background:var(--siegel);border-color:var(--siegel);color:var(--blatt)}
+.tagfeld.an{background:var(--petrol);border-color:var(--petrol);color:var(--blatt)}
 .tagfeld.ruht{opacity:.36;cursor:default}
 .tagfeld:disabled{cursor:default}
 
 .zaehler{display:flex;align-items:center;gap:11px;margin:10px 0 0}
-.zaehler .stand{font-family:'UnifrakturCook',serif;font-weight:700;font-size:26px;color:var(--siegel)}
+.zaehler .stand{font-family:'UnifrakturCook',serif;font-weight:700;font-size:26px;color:var(--petrol)}
 .zaehler .von{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--tinte-blass);flex:1}
 .rundbtn{
   width:34px;height:34px;flex:none;cursor:pointer;padding:0;border-radius:50%;
@@ -313,9 +361,9 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
 .verlaufgitter{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,11px);gap:2px}
 .verlaufgitter.perioden{grid-template-rows:14px}
 .zelle{width:11px;height:11px;background:var(--feld);border:1px solid var(--linie)}
-.zelle.getan{background:var(--siegel);border-color:var(--siegel)}
+.zelle.getan{background:var(--petrol);border-color:var(--petrol)}
 /* Verpasst heißt: leer, aber umrandet. Gepunktet wäre bei 11 px Brei. */
-.zelle.verpasst{background:none;border-color:var(--siegel)}
+.zelle.verpasst{background:none;border-color:var(--petrol)}
 .zelle.ausserhalb{opacity:.24}
 .verlaufgitter.perioden .zelle{width:22px;height:14px;
   font-family:'IBM Plex Mono',monospace;font-size:8px;line-height:12px;text-align:center;color:var(--tinte-blass)}
@@ -340,7 +388,7 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
 }
 .feld select{font-family:'IBM Plex Mono',monospace;font-size:12px}
 .feld textarea{min-height:110px;resize:vertical}
-.feld input:focus,.feld textarea:focus,.feld select:focus{outline:none;border-color:var(--siegel)}
+.feld input:focus,.feld textarea:focus,.feld select:focus{outline:none;border-color:var(--petrol)}
 
 /* --- Fenster -------------------------------------------------- */
 
@@ -357,7 +405,7 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
 }
 .modalkopf{display:flex;align-items:flex-start;gap:10px;margin-bottom:5px}
 .modalkopf h2{margin:0;flex:1;font-family:'UnifrakturCook',serif;font-weight:700;font-size:20px;
-  line-height:1.15;color:var(--siegel)}
+  line-height:1.15;color:var(--petrol)}
 .schliessen{background:none;border:none;cursor:pointer;color:var(--tinte-blass);
   font-size:20px;line-height:1;width:28px;height:28px;padding:0;flex:none}
 
@@ -365,7 +413,7 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
 
 .abschnitt{margin:13px 0 0}
 .abschnitt h3{margin:0 0 6px;font-family:'UnifrakturCook',serif;font-weight:700;font-size:17px;
-  line-height:1.2;color:var(--siegel)}
+  line-height:1.2;color:var(--petrol)}
 .hinweis{font-family:'Parisienne',cursive;font-size:19px;line-height:1.35;color:var(--tinte-blass);margin:0 0 9px}
 
 /* --- Fußzeile --------------------------------------------------
@@ -386,10 +434,14 @@ nav{
   display:flex;flex-direction:column;align-items:center;gap:1px;
 }
 .tab .ic{font-size:16px;line-height:1.1;font-family:'Cinzel',serif}
-.tab .muenzic{width:17px;height:17px;display:block;filter:saturate(.35) opacity(.75)}
-.tab.on{color:var(--siegel)}
-.tab.on .muenzic{filter:none}
-.tab:focus-visible{outline:2px solid var(--siegel);outline-offset:-2px}
+/* Die Münze in der Leiste erbt die Farbe der Zeile: erkennbar soll sie
+   an der Form sein, nicht an ihrem Gold. */
+.tab .muenzic{width:18px;height:18px;display:block;color:currentColor}
+.tab.nurzeichen{flex:0 0 38px}
+.tab.nurzeichen .ic{font-size:18px}
+.tab.nurzeichen .muenzic{width:20px;height:20px}
+.tab.on{color:var(--petrol)}
+.tab:focus-visible{outline:2px solid var(--petrol);outline-offset:-2px}
 
 /* --- Schmale Geräte -------------------------------------------- */
 
@@ -407,3 +459,63 @@ nav{
   .tab .ic{font-size:14px}
   .tab .muenzic{width:15px;height:15px}
 }
+
+/* --- Skills: das Bücherregal -----------------------------------
+   Die Bücher stehen auf Brettern, die mitwachsen. Rücken und Höhe
+   hängen an der Kennung des Skills, damit sie beim Neuzeichnen nicht
+   springen — ein springendes Regal sähe nach Fehler aus. */
+
+.regal{margin:12px 0 0;border:2px solid var(--rahmen);
+  background:linear-gradient(180deg, rgba(0,0,0,.16), transparent 30%), #3A2416;
+  box-shadow:0 5px 14px var(--schlagschatten);padding:6px 6px 2px}
+.brett{padding:0 4px}
+.buchreihe{display:flex;align-items:flex-end;gap:3px;min-height:92px;padding:0 2px}
+.brettkante{height:7px;margin:0 -4px 7px;
+  background:linear-gradient(180deg, #7A5330, #4A3018);border-top:1px solid #9A6B3E}
+.brett:last-child .brettkante{margin-bottom:2px}
+
+.buch{
+  position:relative;flex:none;cursor:pointer;padding:5px 2px 6px;
+  border:none;border-radius:1px 1px 0 0;transform-origin:bottom center;
+  background:linear-gradient(90deg, rgba(0,0,0,.34), var(--ruecken) 26%, var(--ruecken) 74%, rgba(0,0,0,.3));
+  color:var(--praegung);
+  display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+  box-shadow:0 2px 5px rgba(0,0,0,.45);
+}
+/* Die beiden Prägebänder oben und unten am Rücken */
+.buch::before{content:'';position:absolute;left:2px;right:2px;top:7px;height:2px;
+  background:var(--praegung);opacity:.7}
+.buch::after{content:'';position:absolute;left:2px;right:2px;bottom:9px;height:2px;
+  background:var(--praegung);opacity:.7}
+.buch .titel{
+  writing-mode:vertical-rl;text-orientation:mixed;
+  font-family:'UnifrakturCook',serif;font-size:11px;line-height:1;
+  max-height:52px;overflow:hidden;margin-top:6px;
+}
+.buch .marke{font-family:'IBM Plex Mono',monospace;font-size:7px;opacity:.85;margin-bottom:2px}
+.buch:focus-visible{outline:2px solid var(--schimmer);outline-offset:2px}
+
+.deko{display:flex;align-items:flex-end;gap:4px;margin-left:auto;padding-left:6px}
+.deko svg{display:block}
+.deko .pflanze{width:26px;height:50px}
+.deko .rolle{width:34px;height:22px}
+.deko .frosch{width:30px;height:24px}
+
+/* Die Listen im Skill-Fenster */
+.listenkopf{display:flex;align-items:center;gap:8px;margin:14px 0 0;
+  border-top:1px dashed var(--linie);padding-top:9px}
+.listenname{flex:1;text-align:left;background:none;border:none;cursor:pointer;padding:0;
+  font-family:'UnifrakturCook',serif;font-size:16px;line-height:1.2;color:var(--petrol)}
+
+/* Der Pfeil, der ein To-do auf den nächsten Tag schiebt. */
+.punkt .schieben{
+  background:none;border:none;cursor:pointer;color:var(--mittel);
+  font-family:'Cinzel',serif;font-size:17px;line-height:1;
+  width:26px;height:26px;padding:0;flex:none;
+}
+.punkt .schieben:focus-visible{outline:2px solid var(--petrol);outline-offset:2px}
+
+/* Ein erreichtes Ziel bleibt noch eine Weile stehen und sagt das auch. */
+.kachel.erreicht{opacity:.72}
+.kachel.erreicht h3{text-decoration:line-through}
+.kachel.erreicht .zeile{color:var(--mittel)}
