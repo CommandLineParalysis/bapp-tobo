@@ -492,10 +492,12 @@ nav{
 
 .deko{display:flex;align-items:flex-end;gap:5px;margin-left:auto;padding-left:6px}
 .deko.links{margin-left:0;margin-right:7px;padding-left:0}
-.deko svg{display:block}
-.deko .pflanze{width:26px;height:50px}
-.deko .frosch{width:30px;height:24px}
-.deko .rankpflanze{width:42px;height:84px}
+/* Höhe aus dem Seitenverhältnis, nicht von Hand: sonst bleibt unten
+   wieder ein Spalt und die Pflanze schwebt über dem Brett. */
+.deko svg{display:block;height:auto}
+.deko .pflanze{width:26px}
+.deko .frosch{width:30px}
+.deko .rankpflanze{width:42px}
 
 /* Die Listen im Skill-Fenster */
 .listenkopf{display:flex;align-items:center;gap:8px;margin:14px 0 0;

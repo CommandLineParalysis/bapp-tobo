@@ -509,6 +509,20 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     return spanne;
   });
 
+  await p.check('Knopf und Fenster nennen nur den Monat', async () => {
+    const aufschrift = $('#monatsknopf').textContent.trim();
+    if (/Monatsliste/.test(aufschrift)) throw new Error('Knopf: ' + aufschrift);
+    if (!/^[A-ZÄÖÜ][a-zäöü]+ \d{4}$/.test(aufschrift)) throw new Error('Aufschrift: ' + aufschrift);
+    click($('#monatsknopf'));
+    await wait(25);
+    const titel = $('#modalblatt h2').textContent.trim();
+    if (/Monatsliste/.test(titel)) throw new Error('Fenstertitel: ' + titel);
+    if (titel !== aufschrift) throw new Error(titel + ' ≠ ' + aufschrift);
+    click($('#modalblatt .schliessen'));
+    await wait(20);
+    return aufschrift;
+  });
+
   await p.check('Der Monatsknopf öffnet die Monatsliste', async () => {
     click($('#monatsknopf'));
     await wait(25);

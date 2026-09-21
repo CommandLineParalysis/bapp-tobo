@@ -292,14 +292,14 @@ function muenzZeichen(klasse){
 const EMBLEME = [
   // Pentagramm im Kreis
   'M20 5 A15 15 0 1 1 19.99 5 Z M20 9 L28.6 30.5 L10.4 17 H29.6 L11.4 30.5 Z',
-  // Drei sich schneidende Kreise
-  'M20 13 A8.5 8.5 0 1 1 19.99 13 Z M13.5 24.5 A8.5 8.5 0 1 1 13.49 24.5 Z ' +
-    'M26.5 24.5 A8.5 8.5 0 1 1 26.49 24.5 Z',
+  // Drei sich schneidende Kreise (Mitten 20/15, 13.5/26, 26.5/26)
+  'M20 6.5 A8.5 8.5 0 1 1 19.99 6.5 Z M13.5 17.5 A8.5 8.5 0 1 1 13.49 17.5 Z ' +
+    'M26.5 17.5 A8.5 8.5 0 1 1 26.49 17.5 Z',
   // Stufendreieck
   'M20 6 L34 31 H6 Z M12.5 24 H27.5 M15.5 19 H24.5 M17.8 14 H22.2',
   // Kreis mit drei Punkten
-  'M20 5 A15 15 0 1 1 19.99 5 Z M20 12.5 A2.6 2.6 0 1 1 19.99 12.5 Z ' +
-    'M14.4 24 A2.6 2.6 0 1 1 14.39 24 Z M25.6 24 A2.6 2.6 0 1 1 25.59 24 Z',
+  'M20 5 A15 15 0 1 1 19.99 5 Z M20 11.4 A2.6 2.6 0 1 1 19.99 11.4 Z ' +
+    'M14.5 22.4 A2.6 2.6 0 1 1 14.49 22.4 Z M25.5 22.4 A2.6 2.6 0 1 1 25.49 22.4 Z',
   // Auge im Dreieck
   'M20 6 L34 30 H6 Z M12 24 Q20 16 28 24 Q20 32 12 24 Z M20 21.5 A2.4 2.4 0 1 1 19.99 21.5 Z',
   // Zwei verschränkte Dreiecke
@@ -749,7 +749,7 @@ function skillsSeite(){
 function grossePflanze(){
   const d = h('div', { class:'deko links', 'aria-hidden':'true' });
   d.innerHTML = `
-    <svg viewBox="0 0 44 88" class="rankpflanze">
+    <svg viewBox="0 0 44 84" class="rankpflanze">
       <path d="M22 60 C22 44 8 40 5 24" fill="none" stroke="var(--mittel)" stroke-width="3"/>
       <path d="M22 60 C22 42 34 38 39 22" fill="none" stroke="var(--hell)" stroke-width="3"/>
       <path d="M22 60 C22 46 22 34 22 14" fill="none" stroke="var(--mittel)" stroke-width="3"/>
@@ -769,7 +769,7 @@ function grossePflanze(){
 function regalDeko(){
   const deko = h('div', { class:'deko', 'aria-hidden':'true' });
   deko.innerHTML = `
-    <svg viewBox="0 0 34 64" class="pflanze">
+    <svg viewBox="0 0 34 60" class="pflanze">
       <path d="M17 44 C17 30 9 28 7 18 C15 21 17 30 17 36" fill="none" stroke="var(--mittel)" stroke-width="2.4"/>
       <path d="M17 44 C17 32 25 29 28 20 C20 23 18 31 18 38" fill="none" stroke="var(--hell)" stroke-width="2.4"/>
       <circle cx="7" cy="17" r="3.1" fill="var(--schimmer)"/>
@@ -777,7 +777,7 @@ function regalDeko(){
       <path d="M7 44 H27 L25 60 H9 Z" fill="#8A5B2E"/>
       <path d="M6 42 H28 V47 H6 Z" fill="#A9743E"/>
     </svg>
-    <svg viewBox="0 0 40 32" class="frosch">
+    <svg viewBox="0 0 40 31" class="frosch">
       <path d="M4 30 C4 14 11 7 20 7 C29 7 36 14 36 30 Z" fill="#5A3A2E"/>
       <ellipse cx="20" cy="25" rx="10" ry="6" fill="#E8DCC0"/>
       <circle cx="12" cy="9" r="5" fill="#5A3A2E"/><circle cx="28" cy="9" r="5" fill="#5A3A2E"/>
@@ -838,7 +838,7 @@ function todoSeite(){
 
   wurzel.appendChild(h('button', {
     class:'monatsknopf', id:'monatsknopf',
-    text:'Monatsliste · ' + monatsName(tage[3]),
+    text: monatsName(tage[3]),
     onclick: () => zeigeFenster({ art:'monat', id: monatsSchluessel(tage[3]) }),
   }));
 
@@ -1315,7 +1315,7 @@ function fensterMonat(schluessel){
   const liste = DATA.todo.monate[schluessel] || (DATA.todo.monate[schluessel] = []);
   aufraeumen(liste);
   const d = new Date(schluessel + '-15T12:00:00');
-  fensterOeffnen('Monatsliste · ' + monatsName(d), blatt => {
+  fensterOeffnen(monatsName(d), blatt => {
     blatt.appendChild(h('div', { class:'seitenmeta',
       text: erledigtVon(liste) + ' VON ' + liste.length + ' ERLEDIGT' }));
     blatt.appendChild(punkteBlock(liste, fensterAuffrischen, 'Für diesen Monat steht nichts an.'));
