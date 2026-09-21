@@ -393,13 +393,43 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
   });
 
   await p.check('Im Regal steht auch Deko', () => {
-    const deko = $('#regal .deko');
-    if (!deko) throw new Error('Keine Deko');
-    for (const teil of ['pflanze','rolle','frosch']){
-      if (!deko.querySelector('.' + teil)) throw new Error(teil + ' fehlt');
+    const links = $('#regal .brett:first-child .deko.links');
+    if (!links) throw new Error('Keine Pflanze links oben');
+    if (!links.querySelector('.rankpflanze')) throw new Error('Rankpflanze fehlt');
+
+    const unten = $('#regal .brett:last-child .deko:not(.links)');
+    if (!unten) throw new Error('Keine Deko auf dem untersten Brett');
+    for (const teil of ['pflanze','frosch']){
+      if (!unten.querySelector('.' + teil)) throw new Error(teil + ' fehlt');
     }
-    if (deko.getAttribute('aria-hidden') !== 'true') throw new Error('Deko nicht als Zierrat gekennzeichnet');
-    return 'Pflanze, Rolle, Frosch';
+    if ($('#regal .rolle')) throw new Error('Die Pergamentrolle steht noch da');
+    [links, unten].forEach(d => {
+      if (d.getAttribute('aria-hidden') !== 'true') throw new Error('Deko nicht als Zierrat gekennzeichnet');
+    });
+    return 'Rankpflanze links oben, Topfpflanze und Frosch unten';
+  });
+
+  await p.check('Unter dem Regal steht kein Textblatt', () => {
+    const blaetter = $$('main .seite');
+    if (blaetter.length) throw new Error(blaetter.length + ' Blätter unter dem Regal');
+    return 'nur das Regal und der Knopf';
+  });
+
+  await p.check('Die Eckzeichen sind Zeichen aus der Vorlage', () => {
+    click(tab('todo'));
+    const zeichen = $$('main .seite > .emblem');
+    if (!zeichen.length) throw new Error('Keine Eckzeichen');
+    zeichen.forEach(z => {
+      if (z.getAttribute('aria-hidden') !== 'true') throw new Error('Zeichen nicht als Zierrat gekennzeichnet');
+      const d = z.querySelector('path').getAttribute('d');
+      if (!d || d.length < 20) throw new Error('Leeres Zeichen');
+    });
+    // Mehrere Blätter nebeneinander sollen nicht dasselbe Zeichen tragen.
+    const formen = zeichen.map(z => z.querySelector('path').getAttribute('d'));
+    if (new Set(formen).size < Math.min(4, zeichen.length))
+      throw new Error('zu wenig verschiedene: ' + new Set(formen).size);
+    click(tab('skills'));   // die folgenden Prüfungen arbeiten im Regal weiter
+    return zeichen.length + ' Zeichen, ' + new Set(formen).size + ' verschiedene';
   });
 
   await p.check('Ein Skill trägt mehrere Listen', async () => {

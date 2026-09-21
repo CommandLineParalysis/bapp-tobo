@@ -290,12 +290,26 @@ function muenzZeichen(klasse){
    steht. Es liegt hinter dem Inhalt und nimmt keine Tipps an — Zierrat
    darf die Bedienung nicht in die Quere kommen. */
 const EMBLEME = [
-  'M20 3 L37 20 L20 37 L3 20 Z M20 9 L31 20 L20 31 L9 20 Z',
-  'M20 4 A16 16 0 1 0 20 36 A16 16 0 1 0 20 4 Z M8 20 H32 M20 8 V32',
-  'M5 12 H35 M5 20 H35 M5 28 H35 M12 5 V35 M28 5 V35',
-  'M20 4 L34 28 H6 Z M20 14 L27 26 H13 Z',
-  'M6 6 H34 V34 H6 Z M6 6 L34 34 M34 6 L6 34',
+  // Pentagramm im Kreis
+  'M20 5 A15 15 0 1 1 19.99 5 Z M20 9 L28.6 30.5 L10.4 17 H29.6 L11.4 30.5 Z',
+  // Drei sich schneidende Kreise
+  'M20 13 A8.5 8.5 0 1 1 19.99 13 Z M13.5 24.5 A8.5 8.5 0 1 1 13.49 24.5 Z ' +
+    'M26.5 24.5 A8.5 8.5 0 1 1 26.49 24.5 Z',
+  // Stufendreieck
+  'M20 6 L34 31 H6 Z M12.5 24 H27.5 M15.5 19 H24.5 M17.8 14 H22.2',
+  // Kreis mit drei Punkten
+  'M20 5 A15 15 0 1 1 19.99 5 Z M20 12.5 A2.6 2.6 0 1 1 19.99 12.5 Z ' +
+    'M14.4 24 A2.6 2.6 0 1 1 14.39 24 Z M25.6 24 A2.6 2.6 0 1 1 25.59 24 Z',
+  // Auge im Dreieck
+  'M20 6 L34 30 H6 Z M12 24 Q20 16 28 24 Q20 32 12 24 Z M20 21.5 A2.4 2.4 0 1 1 19.99 21.5 Z',
+  // Zwei verschränkte Dreiecke
+  'M20 6 L32 27 H8 Z M20 34 L8 13 H32 Z',
+  // Kreuz mit Mondsichel
+  'M20 34 V11 M12 18 H28 M14 9 A7 7 0 1 0 26 9',
+  // Welle im Quadrat
+  'M7 7 H33 V33 H7 Z M11 17 Q15 13 20 17 T29 17 M11 25 Q15 21 20 25 T29 25',
 ];
+
 function emblem(i){
   const NS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(NS, 'svg');
@@ -423,7 +437,7 @@ function fensterAuffrischen(){
    gemischt statt durchgehend groß. */
 const TITEL = {
   vorsaetze:'Jahresvorsätze', habits:'Habits', ziele:'Ziele', skills:'Skills',
-  todo:'To Do', pflichten:'Verantwortung', belohnungen:'Belohnungen',
+  todo:'To Do', pflichten:'Verpflichtungen', belohnungen:'Belohnungen',
   einstellungen:'Einstellungen',
 };
 
@@ -690,6 +704,7 @@ function skillsSeite(){
   bretter.forEach((buecher, bi) => {
     const brett = h('div', { class:'brett' });
     const reihe = h('div', { class:'buchreihe' });
+    if (bi === 0) reihe.appendChild(grossePflanze());
     buecher.forEach(k => {
       const z = buchZuschnitt(k.id);
       const offen = k.listen.reduce((n, l) => n + l.punkte.length, 0);
@@ -713,10 +728,6 @@ function skillsSeite(){
   });
 
   wurzel.appendChild(regal);
-  if (!DATA.skills.length){
-    wurzel.appendChild(seite(null, null,
-      h('div', { class:'leer', text:'Noch kein Buch im Regal. Was willst du lernen?' })));
-  }
   wurzel.appendChild(h('button', {
     class:'neu', id:'neuerskill', text:'+ Skill',
     onclick: async () => {
@@ -732,8 +743,29 @@ function skillsSeite(){
   return wurzel;
 }
 
-/* Die drei Stücke, die im Regal stehen: eine Topfpflanze, eine
-   Pergamentrolle und ein Frosch. Reiner Zierrat, nicht anklickbar. */
+/* Was im Regal steht: links oben eine große Rankpflanze, auf dem
+   untersten Brett eine kleine Topfpflanze und ein Frosch. Reiner
+   Zierrat, nicht anklickbar. */
+function grossePflanze(){
+  const d = h('div', { class:'deko links', 'aria-hidden':'true' });
+  d.innerHTML = `
+    <svg viewBox="0 0 44 88" class="rankpflanze">
+      <path d="M22 60 C22 44 8 40 5 24" fill="none" stroke="var(--mittel)" stroke-width="3"/>
+      <path d="M22 60 C22 42 34 38 39 22" fill="none" stroke="var(--hell)" stroke-width="3"/>
+      <path d="M22 60 C22 46 22 34 22 14" fill="none" stroke="var(--mittel)" stroke-width="3"/>
+      <path d="M12 42 C6 40 4 34 6 30 C11 32 13 37 12 42 Z" fill="var(--hell)"/>
+      <path d="M32 38 C38 36 40 30 38 26 C33 28 31 33 32 38 Z" fill="var(--mittel)"/>
+      <path d="M22 34 C16 31 15 25 17 21 C22 24 23 29 22 34 Z" fill="var(--hell)"/>
+      <circle cx="5" cy="22" r="4" fill="var(--schimmer)"/>
+      <circle cx="39" cy="20" r="3.4" fill="var(--schimmer)"/>
+      <circle cx="22" cy="12" r="4.6" fill="var(--schimmer)"/>
+      <path d="M9 60 H35 L32 84 H12 Z" fill="#8A5B2E"/>
+      <path d="M7 57 H37 V64 H7 Z" fill="#A9743E"/>
+      <path d="M13 68 H31" stroke="#6E4520" stroke-width="2"/>
+    </svg>`;
+  return d;
+}
+
 function regalDeko(){
   const deko = h('div', { class:'deko', 'aria-hidden':'true' });
   deko.innerHTML = `
@@ -744,12 +776,6 @@ function regalDeko(){
       <circle cx="28" cy="19" r="2.6" fill="var(--schimmer)"/>
       <path d="M7 44 H27 L25 60 H9 Z" fill="#8A5B2E"/>
       <path d="M6 42 H28 V47 H6 Z" fill="#A9743E"/>
-    </svg>
-    <svg viewBox="0 0 46 30" class="rolle">
-      <rect x="5" y="7" width="36" height="16" rx="2" fill="#E9DCB8"/>
-      <path d="M9 12 H33 M9 15.5 H30 M9 19 H27" stroke="#8B7A55" stroke-width="1.2"/>
-      <circle cx="5" cy="15" r="5" fill="#CDBA8E"/><circle cx="41" cy="15" r="5" fill="#CDBA8E"/>
-      <circle cx="5" cy="15" r="1.7" fill="#8B7A55"/><circle cx="41" cy="15" r="1.7" fill="#8B7A55"/>
     </svg>
     <svg viewBox="0 0 40 32" class="frosch">
       <path d="M4 30 C4 14 11 7 20 7 C29 7 36 14 36 30 Z" fill="#5A3A2E"/>
@@ -879,7 +905,7 @@ function monatsName(d){
 function habitsSeite(){
   const wurzel = h('div', {});
   wurzel.appendChild(h('button', {
-    class:'farbknopf', id:'pflichtknopf', text:'⚖ Verantwortung',
+    class:'farbknopf', id:'pflichtknopf', text:'⚖ Verpflichtungen',
     onclick: () => go('pflichten'),
   }));
   if (!DATA.habits.length){
