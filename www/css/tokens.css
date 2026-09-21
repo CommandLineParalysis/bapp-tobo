@@ -1,0 +1,98 @@
+/* ============================================================
+   B-Appiverse — gemeinsames Farbsystem
+
+   Aus @bappiverse/scaffold kopiert. NICHT hier bearbeiten:
+   Änderungen gehören ins Scaffold, dann `npm run sync:ui`.
+
+   Farbig ist nichts fest verdrahtet. Jedes farbige Element hängt an der
+   Primärfamilie, die beim Umschalten komplett ausgetauscht wird — eine
+   Zeile färbt die ganze Oberfläche um.
+   ============================================================ */
+
+:root{
+    color-scheme: dark;
+
+    /* --- Grundtöne ---
+       Der Hintergrund ist das dunkle Violett #2A132F. Die Kartenfläche
+       liegt bewusst darunter, damit Kacheln Tiefe über ihre leuchtenden
+       Ränder bekommen statt über eine hellere Fläche. */
+    --bg-deep:#2A132F;
+    --bg-lift:#411E48;
+    --surface:#1B0D1E;
+
+    /* --- Die drei wählbaren Grundfarben ---
+       Nur für die Kästchen in der Kopfzeile und für die Überschrift.
+       Alles andere Farbige läuft über die Primärfamilie darunter. */
+    --teal:#30F3CF;
+    --orange:#FE8E3E;
+    --pink:#FF3D9E;
+
+    /* --- Primärfamilie (Voreinstellung Teal) ---
+       Eine Farbe, mehrere Helligkeiten. Beim Umschalten wird dieser
+       ganze Block ersetzt, dadurch folgt jedes farbige Element mit,
+       ohne dass irgendwo eine feste Farbe stehen bleibt.
+         primary        volle Akzentfarbe
+         primary-light  hellste Stufe, Kachelrotation und Hervorhebung
+         primary-soft   mittlere Stufe der Kachelrotation
+         primary-deep   Verlaufsanfänge und Flächen
+         primary-ink    Text auf gefüllter Primärfläche
+         muted/dim/faint Hilfstexte im selben Farbton, entsättigt */
+    --primary-rgb:48,243,207;
+    --primary:#30F3CF;
+    --primary-light:#95F9E7;
+    --primary-soft:#7FE6D3;
+    --primary-deep:#0F574A;
+    --primary-ink:#0B1614;
+    --muted:#9FC6BF;
+    --dim:#85ADA6;
+    --faint:#6B948C;
+
+    /* Die Überschrift trägt immer drei verschiedene Farben.
+       Welche das sind, richtet sich nach der gewählten Primärfarbe. */
+    --title-a:#30F3CF;
+    --title-b:#FE8E3E;
+    --title-c:#FF3D9E;
+
+    /* --- Text --- */
+    --ink:#f3e9f5;
+    --ink-soft:#dCcfe0;
+    --hairline: rgba(255,255,255,.14);
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+
+  /* --- Umschaltbare Primärfarbe ---
+     Die Kästchen in der Kopfzeile setzen data-theme auf <html>.
+     Teal ist die Voreinstellung und braucht keine eigene Regel. */
+  :root[data-theme="orange"]{
+    --primary-rgb:254,142,62;
+    --primary:#FE8E3E;  --primary-light:#FEBE8F; --primary-soft:#EBA97A;
+    --primary-deep:#5B2C0B; --primary-ink:#200D00;
+    --muted:#C6AF9F; --dim:#AD9685; --faint:#947C6B;
+    --title-a:#FE8E3E; --title-b:#FF3D9E; --title-c:#30F3CF;
+  }
+  :root[data-theme="pink"]{
+    --primary-rgb:255,61,158;
+    --primary:#FF3D9E;  --primary-light:#FF8FC7; --primary-soft:#EC79B3;
+    --primary-deep:#5C0A33; --primary-ink:#2A091A;
+    --muted:#C69FB2; --dim:#AD8599; --faint:#946B80;
+    --title-a:#FF3D9E; --title-b:#30F3CF; --title-c:#FE8E3E;
+  }
+
+  /* --- Farbwähler in der Kopfzeile --- */
+  /* Das farbige Quadrat bleibt 16 px, der Knopf darum ist 24 px groß:
+     mit 16 px war das Tippziel auf dem Handy nicht zuverlässig zu
+     treffen. Gemessen in Chromium, nicht geschätzt. */
+  .swatches{display:flex;gap:0;align-items:center}
+  .swatch{width:24px;height:24px;flex:none;cursor:pointer;border:none;
+    padding:4px;background:none;position:relative}
+  .swatch i{display:block;width:100%;height:100%;border:1px solid rgba(255,255,255,.22)}
+  .swatch[data-theme="teal"] i{background:var(--teal)}
+  .swatch[data-theme="orange"] i{background:var(--orange)}
+  .swatch[data-theme="pink"] i{background:var(--pink)}
+  .swatch.on i{border-color:#fff;box-shadow:0 0 10px rgba(255,255,255,.35)}
+  .swatch:focus-visible{outline:2px solid var(--ink);outline-offset:-1px}
+  /* Suchknopf und Farbwähler nebeneinander statt untereinander. Gestapelt
+     waren sie der Grund, warum die Kopfzeile so weit hereinragte. */
+  .headright{display:flex;flex-direction:row;align-items:center;gap:11px}

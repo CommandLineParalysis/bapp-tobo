@@ -1,0 +1,31 @@
+{
+  "name": "tobo",
+  "version": "1.0.0",
+  "description": "Gamifizierte To-Do-, Habit- und Zielverwaltung im Grimoire-Stil",
+  "private": true,
+  "scripts": {
+    "sync": "cap sync android",
+    "postsync": "bappiverse-permissions",
+    "open": "cap open android",
+    "run": "cap run android",
+    "permissions": "bappiverse-permissions",
+    "assets": "capacitor-assets generate --android",
+    "setup:android": "cap add android && npm run permissions && npm run assets && cap sync android",
+    "bundle": "bappiverse-bundle",
+    "test": "node test/run.js",
+    "sync:ui": "bappiverse-sync-ui",
+    "icons:check": "bappiverse-check-icons"
+  },
+  "devDependencies": {
+    "@bappiverse/scaffold": "github:CommandLineParalysis/bappiverse",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.2"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/camera": "^8.2.4",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/filesystem": "^8.1.3"
+  }
+}

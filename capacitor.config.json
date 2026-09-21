@@ -1,0 +1,9 @@
+{
+  "appId": "com.tobo.app",
+  "appName": "To Bo",
+  "webDir": "www",
+  "android": { "backgroundColor": "#2A132F" },
+  "plugins": {
+    "SplashScreen": { "launchAutoHide": true, "backgroundColor": "#2A132F", "showSpinner": false }
+  }
+}

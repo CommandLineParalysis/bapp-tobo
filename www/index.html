@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="de" data-app="tobo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="format-detection" content="telephone=no">
+<title>To Bo</title>
+<link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="shell">
+  <header>
+    <div class="kopftitel" id="kopftitel">TO BO</div>
+    <div class="headright">
+      <div class="beutel" id="beutel" title="Zaubermünzen">
+        <span class="muenze"></span><span class="anzahl" id="muenzzahl">0</span>
+      </div>
+      <button class="iconbtn" id="settingsbtn" aria-label="Einstellungen">⚙</button>
+    </div>
+  </header>
+
+  <main id="main"></main>
+
+  <nav id="nav">
+    <button class="tab" data-screen="vorsaetze"><span class="ic">❋</span>VORSÄTZE</button>
+    <button class="tab" data-screen="habits"><span class="ic">☾</span>HABITS</button>
+    <button class="tab" data-screen="ziele"><span class="ic">✦</span>ZIELE</button>
+    <button class="tab" data-screen="todo"><span class="ic">✔</span>TO DO</button>
+    <button class="tab" data-screen="pflichten"><span class="ic">⚖</span>PFLICHT</button>
+    <button class="tab" data-screen="belohnungen"><span class="ic">◈</span>LOHN</button>
+  </nav>
+</div>
+
+<div id="modal" class="modal" hidden><div class="modalblatt" id="modalblatt"></div></div>
+
+<script src="js/storage.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

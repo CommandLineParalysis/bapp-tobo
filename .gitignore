@@ -1,0 +1,13 @@
+node_modules/
+
+# Von Capacitor erzeugt, gehört nicht in die Versionskontrolle
+android/
+ios/
+
+# Von @capacitor/assets erzeugte Icon- und Splash-Größen
+www/assets/
+
+# Vom Bundler erzeugte Einzeldatei-Vorschau
+vorschau.html
+
+.DS_Store
