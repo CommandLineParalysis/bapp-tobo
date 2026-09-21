@@ -29,7 +29,6 @@
   --beschlag:#8A6A3A;
   --linie:rgba(46,36,24,.26);
   --feld:rgba(255,255,255,.42);
-  --glanz:rgba(255,255,255,.55);
   --schlagschatten:rgba(74,58,36,.28);
   /* Die Blau- und Türkistöne des Ritualkreises und der Zierstücke.
      Eine Familie, vier Helligkeiten — mehr braucht es nicht. */
@@ -52,7 +51,6 @@
   --beschlag:#8E6BA0;
   --linie:rgba(234,221,191,.22);
   --feld:rgba(255,255,255,.07);
-  --glanz:rgba(255,255,255,.1);
   --schlagschatten:rgba(0,0,0,.6);
   --tief:#0E4B55;
   --mittel:#2E9CAE;
@@ -71,14 +69,15 @@ html,body{
   overscroll-behavior:none;
 }
 
-/* Die Maserung des Grundes: ein paar sehr blasse Flecken, damit das
-   Papier nicht wie eine Fläche wirkt. */
+/* Die Maserung des Grundes: ein paar sehr blasse Schatten, damit das
+   Papier nicht ganz tot wirkt. Aufgehellt wird nichts — Pergament
+   glänzt nicht. */
 body::before{
-  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.45;
   background:
-    radial-gradient(38% 26% at 18% 12%, var(--glanz), transparent 70%),
     radial-gradient(30% 22% at 82% 34%, var(--grund-schatten), transparent 72%),
-    radial-gradient(44% 30% at 42% 88%, var(--grund-schatten), transparent 74%);
+    radial-gradient(44% 30% at 42% 88%, var(--grund-schatten), transparent 74%),
+    radial-gradient(34% 24% at 12% 16%, var(--grund-schatten), transparent 72%);
 }
 
 #muenzstempel{position:absolute;width:0;height:0;overflow:hidden}
@@ -91,7 +90,7 @@ header{
   display:flex;align-items:center;justify-content:space-between;gap:9px;
   padding:calc(9px + env(safe-area-inset-top,0px)) 13px 8px;
   border-bottom:2px solid var(--rahmen);
-  background:linear-gradient(180deg, var(--blatt), var(--blatt-tief));
+  background:var(--blatt);
   box-shadow:0 2px 0 var(--beschlag), 0 6px 14px var(--schlagschatten);
 }
 .kopftitel{
@@ -129,9 +128,7 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
 .seite > *{position:relative;z-index:2}
 .seite{
   position:relative;
-  background:
-    radial-gradient(80% 50% at 24% 6%, var(--glanz), transparent 62%),
-    linear-gradient(162deg, var(--blatt), var(--blatt-tief));
+  background:var(--blatt);
   color:var(--tinte);
   padding:13px 13px 15px;margin:12px 0 0;
   border:2px solid var(--rahmen);
@@ -242,17 +239,16 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
   position:absolute;transform:translate(-50%,-50%);cursor:pointer;
   width:80px;min-height:80px;border-radius:50%;padding:7px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
-  background:radial-gradient(circle at 36% 30%, var(--blatt), var(--blatt-tief));
-  border:2px solid var(--petrol);color:var(--tinte);
+  background:var(--blatt);
+  border:2px solid var(--mittel);color:var(--tinte);
   box-shadow:0 3px 10px var(--schlagschatten);
 }
-.knoten{border-color:var(--mittel)}
 .knoten .name{font-family:'UnifrakturCook',serif;font-weight:700;font-size:12px;
   text-align:center;line-height:1.05;overflow-wrap:break-word;hyphens:auto}
 .knoten .stand{font-family:'IBM Plex Mono',monospace;font-size:8.5px;color:var(--tinte-blass)}
 .knoten.mitte{
   left:50%;top:50%;width:96px;min-height:96px;border-color:var(--rahmen);cursor:default;
-  background:radial-gradient(circle at 40% 32%, var(--blatt), var(--blatt-tief));
+  background:var(--blatt-tief);
 }
 .knoten.mitte .name{font-size:22px}
 
@@ -261,9 +257,7 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
 .kacheln{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin:12px 0 0}
 .kachel{
   position:relative;cursor:pointer;text-align:left;width:100%;
-  background:
-    radial-gradient(70% 44% at 26% 8%, var(--glanz), transparent 62%),
-    linear-gradient(162deg, var(--blatt), var(--blatt-tief));
+  background:var(--blatt);
   color:var(--tinte);border:2px solid var(--rahmen);padding:10px 10px 11px;
   box-shadow:0 4px 11px var(--schlagschatten);
 }
@@ -401,9 +395,7 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
 .modal[hidden]{display:none}
 .modalblatt{
   position:relative;width:100%;max-width:440px;max-height:86vh;overflow-y:auto;
-  background:
-    radial-gradient(70% 40% at 24% 5%, var(--glanz), transparent 62%),
-    linear-gradient(162deg, var(--blatt), var(--blatt-tief));
+  background:var(--blatt);
   color:var(--tinte);padding:14px;border:2px solid var(--rahmen);
   box-shadow:0 18px 44px rgba(0,0,0,.6);
 }
@@ -428,7 +420,7 @@ nav{
   display:flex;gap:2px;justify-content:center;
   padding:4px 4px calc(5px + env(safe-area-inset-bottom,0px));
   border-top:2px solid var(--rahmen);
-  background:linear-gradient(0deg, var(--blatt), var(--blatt-tief));
+  background:var(--blatt);
   box-shadow:0 -2px 0 var(--beschlag);
 }
 .tab{
