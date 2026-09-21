@@ -16,12 +16,14 @@
 
 :root{
   /* --- Pergament (Standard) --- */
-  --grund:#E0D0AB;
-  --grund-schatten:rgba(74,58,36,.16);
-  --blatt:#F4EAD0;
-  --blatt-tief:#E6D6AF;
+  --grund:#D0BC92;
+  --grund-schatten:rgba(74,58,36,.18);
+  --blatt:#E7D9B5;
+  --blatt-tief:#D6C393;
   --tinte:#2E2418;
-  --tinte-blass:#6E5D45;
+  /* Mit dem dunkleren Pergament musste die blasse Tinte mitziehen:
+     auf #D0BC92 kam der alte Ton nur auf 3,4:1. Jetzt 4,9:1. */
+  --tinte-blass:#55462F;
   --petrol:#0F5259;
   --rahmen:#4A3A24;
   --beschlag:#8A6A3A;
