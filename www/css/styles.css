@@ -1,123 +1,185 @@
 /* ============================================================
    To Bo — ein Grimoire.
 
-   Das Farbsystem steht in tokens.css und kommt aus dem Scaffold
-   (npm run sync:ui). Hier steht nur, was diese App eigen hat.
+   Zwei Modi, ein Farbvorrat. Standard ist Pergament: die ganze
+   Seite ist Papier, die Blätter liegen nur etwas heller darauf.
+   Der dunkle Modus tauscht den Grund gegen das sehr dunkle
+   Violett des Appiverse (--surface / --bg-deep aus tokens.css)
+   und dreht die Tinte hell. Neue Farbtöne kommen dabei fast
+   keine dazu — das Gold der Münze sind Abstufungen des
+   Familien-Orange, das aufgehellte Siegelrot ist derselbe Ton.
 
-   Der Grundgedanke der Referenzen: Pergamentseiten auf dunklem
-   Grund, mit Tinte beschrieben und mit leuchtenden Zeichen
-   versehen. Das Dunkel und die Leuchtfarben kommen aus dem
-   gemeinsamen System; das Pergament ist das Eigene dieser App.
+   Der Zierrat folgt den Pixel-Grimoires: Rahmen mit Eckbeschlägen,
+   Zierlinien mit Rauten, gravierte Ringe. Gezeichnet wird das mit
+   Rändern und Verläufen, nicht mit Bildern — die App lädt nichts.
    ============================================================ */
 
 :root{
-  --pergament:#E9DCBE;
-  --pergament-tief:#DCCBA4;
+  /* --- Pergament (Standard) --- */
+  --grund:#E0D0AB;
+  --grund-schatten:rgba(74,58,36,.16);
+  --blatt:#F4EAD0;
+  --blatt-tief:#E6D6AF;
   --tinte:#2E2418;
-  --tinte-blass:#6B5B44;
-  --siegel:#8E2B22;          /* Rotbraun wie Siegellack */
+  --tinte-blass:#6E5D45;
+  --siegel:#8E2B22;
+  --rahmen:#4A3A24;
+  --beschlag:#8A6A3A;
+  --linie:rgba(46,36,24,.26);
+  --feld:rgba(255,255,255,.42);
+  --glanz:rgba(255,255,255,.55);
+  --schlagschatten:rgba(74,58,36,.28);
+  color-scheme:light;
+}
+
+:root[data-modus="dunkel"]{
+  --grund:#160A1A;
+  --grund-schatten:rgba(0,0,0,.5);
+  --blatt:#2A132F;
+  --blatt-tief:#1F0E24;
+  --tinte:#EADDBF;
+  --tinte-blass:#A28FA8;
+  --siegel:#E0705C;
+  --rahmen:#0C0610;
+  --beschlag:#8E6BA0;
+  --linie:rgba(234,221,191,.22);
+  --feld:rgba(255,255,255,.07);
+  --glanz:rgba(255,255,255,.1);
+  --schlagschatten:rgba(0,0,0,.6);
+  color-scheme:dark;
 }
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 
 html,body{
   margin:0;height:100%;
-  background:var(--bg-deep);
-  color:var(--ink);
-  font-family:'Barlow',system-ui,sans-serif;
+  background:var(--grund);
+  color:var(--tinte);
+  font-family:'Parisienne',cursive;
   overscroll-behavior:none;
 }
 
-/* Der dunkle Tisch, auf dem das Buch liegt: ein schwacher Lichtkegel
-   von oben, damit die Seiten nicht im Nichts schweben. */
+/* Die Maserung des Grundes: ein paar sehr blasse Flecken, damit das
+   Papier nicht wie eine Fläche wirkt. */
 body::before{
-  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
-  background:radial-gradient(120% 65% at 50% 0%, rgba(var(--primary-rgb),.12), transparent 70%);
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+  background:
+    radial-gradient(38% 26% at 18% 12%, var(--glanz), transparent 70%),
+    radial-gradient(30% 22% at 82% 34%, var(--grund-schatten), transparent 72%),
+    radial-gradient(44% 30% at 42% 88%, var(--grund-schatten), transparent 74%);
 }
+
+#muenzstempel{position:absolute;width:0;height:0;overflow:hidden}
 
 #shell{position:relative;z-index:1;display:flex;flex-direction:column;height:100%}
 
 /* --- Kopfzeile --------------------------------------------- */
 
 header{
-  display:flex;align-items:center;justify-content:space-between;gap:10px;
-  padding:calc(10px + env(safe-area-inset-top,0px)) 14px 9px;
+  display:flex;align-items:center;justify-content:space-between;gap:9px;
+  padding:calc(9px + env(safe-area-inset-top,0px)) 13px 8px;
+  border-bottom:2px solid var(--rahmen);
+  background:linear-gradient(180deg, var(--blatt), var(--blatt-tief));
+  box-shadow:0 2px 0 var(--beschlag), 0 6px 14px var(--schlagschatten);
 }
 .kopftitel{
-  font-family:'Cinzel',serif;font-weight:700;font-size:17px;letter-spacing:.14em;
-  color:var(--primary-light);text-shadow:0 0 14px rgba(var(--primary-rgb),.45);
+  font-family:'UnifrakturCook',serif;font-weight:700;font-size:23px;line-height:1.1;
+  letter-spacing:.01em;color:var(--siegel);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.headright{display:flex;flex-direction:row;align-items:center;gap:9px;flex:none}
+.headright{display:flex;flex-direction:row;align-items:center;gap:7px;flex:none}
 
 /* Der Münzbeutel steht immer oben rechts — das ist der Punkt der App. */
-.beutel{display:flex;align-items:center;gap:6px;padding:3px 9px 3px 6px;
-  border:1px solid rgba(var(--primary-rgb),.45);background:rgba(var(--primary-rgb),.1)}
-.muenze{width:15px;height:15px;flex:none;border-radius:50%;
-  background:radial-gradient(circle at 34% 30%, #FFE9A8, var(--title-b) 62%, #7A4410);
-  box-shadow:0 0 9px rgba(254,142,62,.6);position:relative}
-.muenze::after{content:'';position:absolute;inset:4px;border:1px solid rgba(0,0,0,.35);border-radius:50%}
-.anzahl{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:13px;color:var(--primary-light)}
-.beutel.gewinn{animation:klimper .5s ease}
-@keyframes klimper{
-  30%{transform:scale(1.14)}
-  60%{transform:scale(.97)}
+.beutel{
+  display:flex;align-items:center;gap:5px;padding:2px 8px 2px 4px;cursor:pointer;
+  border:1.5px solid var(--rahmen);background:var(--feld);color:var(--tinte);
 }
+.muenze{width:21px;height:21px;flex:none;filter:drop-shadow(0 1px 1px var(--schlagschatten))}
+.anzahl{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:13px;color:var(--tinte)}
+.beutel.gewinn{animation:klimper .5s ease}
+@keyframes klimper{ 30%{transform:scale(1.14)} 60%{transform:scale(.97)} }
 
-.iconbtn{width:30px;height:30px;flex:none;padding:0;cursor:pointer;
-  background:none;border:1px solid var(--hairline);color:var(--ink);font-size:15px;line-height:1}
-.iconbtn:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.iconbtn{
+  width:29px;height:29px;flex:none;padding:0;cursor:pointer;
+  background:var(--feld);border:1.5px solid var(--rahmen);color:var(--tinte);
+  font-family:'Cinzel',serif;font-size:14px;line-height:1;
+}
+.iconbtn:focus-visible{outline:2px solid var(--siegel);outline-offset:2px}
 
 /* --- Hauptfläche ------------------------------------------- */
 
 main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch}
 
-/* Die Pergamentseite. Der leichte Farbverlauf und der unruhige Rand
-   machen aus dem Rechteck ein Blatt. */
+/* Das Blatt mit Rahmen und Eckbeschlägen. Die Beschläge sind acht
+   kurze Striche in den vier Ecken — gezeichnet als Verlaufsflächen,
+   damit kein Bild nachgeladen werden muss. */
 .seite{
-  position:relative;background:
-    radial-gradient(90% 60% at 22% 8%, rgba(255,255,255,.35), transparent 60%),
-    linear-gradient(160deg, var(--pergament), var(--pergament-tief));
+  position:relative;
+  background:
+    radial-gradient(80% 50% at 24% 6%, var(--glanz), transparent 62%),
+    linear-gradient(162deg, var(--blatt), var(--blatt-tief));
   color:var(--tinte);
-  padding:14px 14px 16px;margin:11px 0 0;
-  box-shadow:0 8px 22px rgba(0,0,0,.45);
-  border-radius:2px 5px 3px 6px;
+  padding:13px 13px 15px;margin:12px 0 0;
+  border:2px solid var(--rahmen);
+  box-shadow:0 5px 14px var(--schlagschatten);
 }
-.seite + .seite{margin-top:13px}
+.seite::before{
+  content:'';position:absolute;inset:3px;pointer-events:none;
+  --b:var(--beschlag);
+  background:
+    linear-gradient(var(--b),var(--b)) left    top/11px 2px no-repeat,
+    linear-gradient(var(--b),var(--b)) left    top/2px 11px no-repeat,
+    linear-gradient(var(--b),var(--b)) right   top/11px 2px no-repeat,
+    linear-gradient(var(--b),var(--b)) right   top/2px 11px no-repeat,
+    linear-gradient(var(--b),var(--b)) left    bottom/11px 2px no-repeat,
+    linear-gradient(var(--b),var(--b)) left    bottom/2px 11px no-repeat,
+    linear-gradient(var(--b),var(--b)) right   bottom/11px 2px no-repeat,
+    linear-gradient(var(--b),var(--b)) right   bottom/2px 11px no-repeat;
+}
 
 .seitentitel{
-  font-family:'Cinzel',serif;font-weight:700;font-size:14px;letter-spacing:.1em;
-  color:var(--siegel);margin:0 0 3px;display:flex;align-items:center;gap:8px;
+  font-family:'UnifrakturCook',serif;font-weight:700;font-size:17px;line-height:1.15;
+  color:var(--siegel);margin:0 0 5px;display:flex;align-items:center;gap:7px;
 }
-.seitentitel .zier{flex:1;height:1px;background:rgba(46,36,24,.28)}
-.seitenmeta{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;color:var(--tinte-blass)}
+/* Die Zierlinie endet in einer Raute — das kleine Ding macht den
+   Unterschied zwischen Kasten und Buchseite. */
+.zier{flex:1;height:1px;background:var(--linie);position:relative}
+.zier::after{
+  content:'';position:absolute;right:-1px;top:-2.5px;width:6px;height:6px;
+  background:var(--siegel);transform:rotate(45deg);
+}
+.seitenmeta{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;color:var(--tinte-blass)}
 
-.leer{font-family:'Caveat',cursive;font-size:21px;color:var(--tinte-blass);
-  text-align:center;padding:22px 10px;line-height:1.3}
+.leer{font-family:'Parisienne',cursive;font-size:22px;color:var(--tinte-blass);
+  text-align:center;padding:20px 10px;line-height:1.35}
 
 /* --- Abhakbare Zeilen --------------------------------------- */
 
-.punkt{display:flex;align-items:center;gap:8px;padding:5px 0;
-  border-bottom:1px dashed rgba(46,36,24,.2)}
+.punkt{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px dashed var(--linie)}
 .punkt:last-child{border-bottom:none}
 /* 26 px, nicht 22: die Kästchen und das Kreuz sind das, was man in
    dieser App den ganzen Tag antippt. In Chromium nachgemessen. */
 .haken{
-  width:26px;height:26px;flex:none;cursor:pointer;padding:0;
-  background:rgba(255,255,255,.35);border:1.5px solid var(--tinte);
+  width:26px;height:26px;flex:none;cursor:pointer;padding:0;position:relative;
+  background:var(--feld);border:1.5px solid var(--tinte);
   font-family:'Cinzel',serif;font-size:15px;line-height:1;color:var(--siegel);
 }
-.haken.an{background:var(--siegel);color:var(--pergament);border-color:var(--siegel)}
+.haken::after{
+  content:'';position:absolute;inset:2px;border:1px solid var(--linie);pointer-events:none;
+}
+.haken.an{background:var(--siegel);color:var(--blatt);border-color:var(--siegel)}
+.haken.an::after{border-color:rgba(255,255,255,.35)}
 .haken:focus-visible{outline:2px solid var(--siegel);outline-offset:2px}
 .punkt .text{
-  flex:1;font-family:'Caveat',cursive;font-size:20px;line-height:1.24;
+  flex:1;font-family:'Parisienne',cursive;font-size:21px;line-height:1.3;
   color:var(--tinte);cursor:pointer;word-break:break-word;
 }
 .punkt.erledigt .text{text-decoration:line-through;color:var(--tinte-blass)}
 .punkt .lohn{
+  display:flex;align-items:center;gap:2px;flex:none;cursor:pointer;padding:6px 1px;
   font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--tinte-blass);
-  flex:none;cursor:pointer;align-self:center;padding:6px 2px;
 }
+.punkt .lohn .muenze{width:13px;height:13px;filter:none}
 .punkt .weg{background:none;border:none;cursor:pointer;color:var(--tinte-blass);
   font-size:16px;line-height:1;width:26px;height:26px;padding:0;flex:none}
 
@@ -126,121 +188,140 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
 .knopf{
   cursor:pointer;font-family:'IBM Plex Mono',monospace;font-weight:600;
   font-size:10.5px;letter-spacing:.08em;padding:8px 12px;
-  background:none;border:1px solid var(--primary);color:var(--primary);
+  background:var(--feld);border:1.5px solid var(--rahmen);color:var(--tinte);
 }
-.knopf.voll{background:var(--primary);color:var(--primary-ink);border-color:var(--primary)}
-.knopf.still{border-color:var(--hairline);color:var(--muted)}
-.knopf.warn{border-color:var(--pink);color:var(--pink)}
-.knopf:disabled{opacity:.4;cursor:default}
-.knopf:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
-
-/* Auf Pergament gehört Tinte, nicht Leuchtfarbe. */
-.seite .knopf{border-color:rgba(46,36,24,.45);color:var(--tinte)}
-.seite .knopf.voll{background:var(--siegel);border-color:var(--siegel);color:var(--pergament)}
+.knopf.voll{background:var(--siegel);border-color:var(--siegel);color:var(--blatt)}
+.knopf.still{border-color:var(--linie);color:var(--tinte-blass)}
+.knopf.warn{border-color:var(--siegel);color:var(--siegel)}
+.knopf:disabled{opacity:.42;cursor:default}
+.knopf:focus-visible{outline:2px solid var(--siegel);outline-offset:2px}
 
 .reihe{display:flex;gap:8px;flex-wrap:wrap;margin:11px 0 0}
+
+/* Der große Knopf am Fuß einer Seite: Siegellack mit Beschlag. */
 .neu{
-  display:block;width:100%;margin:13px 0 0;cursor:pointer;
-  background:var(--primary);color:var(--primary-ink);border:none;padding:12px;
-  font-family:'Cinzel',serif;font-weight:700;font-size:13px;letter-spacing:.12em;
+  display:block;width:100%;margin:14px 0 0;cursor:pointer;position:relative;
+  background:var(--siegel);color:var(--blatt);border:2px solid var(--rahmen);padding:11px;
+  font-family:'UnifrakturCook',serif;font-weight:700;font-size:18px;line-height:1.2;
+  box-shadow:0 4px 10px var(--schlagschatten);
 }
+.neu::after{content:'';position:absolute;inset:3px;border:1px solid rgba(255,255,255,.32);pointer-events:none}
 
-/* --- Vorsätze: die Mindmap als Zauberkreis ------------------- */
+/* --- Vorsätze: der Magiezirkel ------------------------------- */
 
-.kreisfeld{position:relative;width:100%;aspect-ratio:1/1;max-height:62vh;margin:8px auto 0}
-.kreisfeld svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.kreisfeld{position:relative;width:100%;aspect-ratio:1/1;max-height:66vh;margin:10px auto 0}
+.kreisfeld svg.zirkel{position:absolute;inset:0;width:100%;height:100%}
 .knoten{
   position:absolute;transform:translate(-50%,-50%);cursor:pointer;
-  width:82px;min-height:82px;border-radius:50%;padding:7px;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-  background:radial-gradient(circle at 36% 30%, var(--pergament), var(--pergament-tief));
+  width:80px;min-height:80px;border-radius:50%;padding:7px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  background:radial-gradient(circle at 36% 30%, var(--blatt), var(--blatt-tief));
   border:2px solid var(--siegel);color:var(--tinte);
-  box-shadow:0 0 16px rgba(var(--primary-rgb),.3);
+  box-shadow:0 3px 10px var(--schlagschatten);
 }
-/* Kurze Namen bleiben ganz, nur wirklich lange werden getrennt —
-   "GESUND/HEIT" mitten im Wort sah nach Fehler aus. */
-.knoten .name{font-family:'Cinzel',serif;font-weight:700;font-size:8.5px;letter-spacing:.02em;
-  text-align:center;line-height:1.14;overflow-wrap:break-word;hyphens:auto}
+.knoten .name{font-family:'UnifrakturCook',serif;font-weight:700;font-size:12px;
+  text-align:center;line-height:1.05;overflow-wrap:break-word;hyphens:auto}
 .knoten .stand{font-family:'IBM Plex Mono',monospace;font-size:8.5px;color:var(--tinte-blass)}
-/* Das Jahr sitzt in der Mitte des Felds — ohne diese beiden Zeilen
-   klebte es in der linken oberen Ecke. */
 .knoten.mitte{
-  left:50%;top:50%;
-  width:96px;min-height:96px;border-color:var(--primary);
-  background:radial-gradient(circle at 40% 32%, rgba(var(--primary-rgb),.3), var(--surface) 70%);
-  color:var(--primary-light);cursor:default;
+  left:50%;top:50%;width:96px;min-height:96px;border-color:var(--rahmen);cursor:default;
+  background:radial-gradient(circle at 40% 32%, var(--blatt), var(--blatt-tief));
 }
-.knoten.mitte .name{font-size:16px;letter-spacing:.1em}
-.knoten.mitte .stand{color:var(--dim)}
+.knoten.mitte .name{font-size:22px}
 
-/* --- Kachelreihen (Ziele, Pflichten, Belohnungen) ------------ */
+/* --- Kachelreihen -------------------------------------------- */
 
-.kacheln{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin:11px 0 0}
+.kacheln{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin:12px 0 0}
 .kachel{
   position:relative;cursor:pointer;text-align:left;width:100%;
-  background:linear-gradient(160deg, var(--pergament), var(--pergament-tief));
-  color:var(--tinte);border:none;padding:11px 11px 12px;
-  box-shadow:0 6px 16px rgba(0,0,0,.4);border-radius:2px 5px 3px 6px;
+  background:
+    radial-gradient(70% 44% at 26% 8%, var(--glanz), transparent 62%),
+    linear-gradient(162deg, var(--blatt), var(--blatt-tief));
+  color:var(--tinte);border:2px solid var(--rahmen);padding:10px 10px 11px;
+  box-shadow:0 4px 11px var(--schlagschatten);
 }
-.kachel h3{margin:0;font-family:'Cinzel',serif;font-weight:700;font-size:12px;
-  letter-spacing:.05em;line-height:1.2;color:var(--siegel)}
-.kachel .zeile{margin:5px 0 0;font-family:'IBM Plex Mono',monospace;font-size:9px;
+.kachel::before{
+  content:'';position:absolute;inset:3px;pointer-events:none;--b:var(--beschlag);
+  background:
+    linear-gradient(var(--b),var(--b)) left  top/9px 2px no-repeat,
+    linear-gradient(var(--b),var(--b)) left  top/2px 9px no-repeat,
+    linear-gradient(var(--b),var(--b)) right bottom/9px 2px no-repeat,
+    linear-gradient(var(--b),var(--b)) right bottom/2px 9px no-repeat;
+}
+.kachel h3{margin:0;font-family:'UnifrakturCook',serif;font-weight:700;font-size:15px;
+  line-height:1.12;color:var(--siegel)}
+.kachel .zeile{margin:4px 0 0;font-family:'IBM Plex Mono',monospace;font-size:9px;
   letter-spacing:.05em;color:var(--tinte-blass)}
-.kachel .vorschau{margin:6px 0 0;font-family:'Caveat',cursive;font-size:16px;line-height:1.2;
+.kachel .vorschau{margin:5px 0 0;font-family:'Parisienne',cursive;font-size:17px;line-height:1.25;
   color:var(--tinte-blass);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-/* Der Fortschrittsbalken als Tintenstrich */
-.balken{height:4px;margin:7px 0 0;background:rgba(46,36,24,.18)}
+.balken{height:5px;margin:6px 0 0;background:var(--linie);border:1px solid var(--linie)}
 .balken i{display:block;height:100%;background:var(--siegel)}
 
 /* --- Belohnungen --------------------------------------------- */
 
-.lohnbild{display:block;width:100%;aspect-ratio:1/1;object-fit:contain;
-  background:radial-gradient(circle at 50% 45%, rgba(var(--primary-rgb),.18), transparent 68%)}
+.lohnbild{display:block;width:100%;aspect-ratio:1/1;object-fit:contain;background:transparent}
 .lohnbild.fehlt{display:flex;align-items:center;justify-content:center;
   font-family:'Cinzel',serif;font-size:26px;color:var(--tinte-blass)}
 .preis{display:flex;align-items:center;gap:5px;margin:6px 0 0}
-.preis .muenze{width:13px;height:13px;box-shadow:none}
+.preis .muenze{width:16px;height:16px;flex:none}
 .preis .zahl{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:12px;color:var(--tinte)}
-.kachel.zuteuer{opacity:.55}
+.kachel.zuteuer{opacity:.58}
 
 /* --- To Do ---------------------------------------------------- */
 
-.wochenkopf{display:flex;align-items:center;gap:8px;margin:11px 0 0}
+.wochenkopf{display:flex;align-items:center;gap:8px;margin:12px 0 0}
 .wochenkopf .spanne{flex:1;font-family:'IBM Plex Mono',monospace;font-size:10px;
-  letter-spacing:.08em;color:var(--muted);text-align:center}
+  letter-spacing:.08em;color:var(--tinte-blass);text-align:center}
 .monatsknopf{
-  display:block;width:100%;margin:11px 0 0;cursor:pointer;border:none;padding:11px;
-  background:linear-gradient(100deg, var(--title-b), var(--title-c));
-  color:#20100A;font-family:'Cinzel',serif;font-weight:700;font-size:12px;letter-spacing:.12em;
-  box-shadow:0 0 18px rgba(0,0,0,.4);
+  display:block;width:100%;margin:11px 0 0;cursor:pointer;position:relative;
+  border:2px solid var(--rahmen);padding:10px;
+  background:linear-gradient(100deg, #BE8637, #F2CA85 48%, #8A5B1C);
+  color:#2A1A06;font-family:'UnifrakturCook',serif;font-weight:700;font-size:18px;line-height:1.2;
+  box-shadow:0 4px 11px var(--schlagschatten);
 }
-.tagkopf{display:flex;align-items:baseline;gap:8px}
-.tagkopf .wt{font-family:'Cinzel',serif;font-weight:700;font-size:13px;color:var(--siegel);letter-spacing:.08em}
+.monatsknopf::after{content:'';position:absolute;inset:3px;border:1px solid rgba(90,54,13,.5);pointer-events:none}
+.tagkopf{display:flex;align-items:center;gap:7px}
+.tagkopf .wt{font-family:'UnifrakturCook',serif;font-weight:700;font-size:17px;color:var(--siegel)}
 .tagkopf .dat{font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--tinte-blass)}
-.seite.heute{box-shadow:0 8px 22px rgba(0,0,0,.45), 0 0 0 2px var(--primary)}
+.seite.heute{box-shadow:0 5px 14px var(--schlagschatten), 0 0 0 3px var(--beschlag)}
 
 /* --- Habits --------------------------------------------------- */
 
 .takt{display:flex;gap:5px;margin:9px 0 0;flex-wrap:wrap}
 .tagfeld{
   width:34px;flex:none;cursor:pointer;padding:5px 0 6px;text-align:center;
-  background:rgba(255,255,255,.3);border:1px solid rgba(46,36,24,.3);color:var(--tinte);
+  background:var(--feld);border:1.5px solid var(--linie);color:var(--tinte);
   font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.04em;
 }
 .tagfeld .zeichen{display:block;font-family:'Cinzel',serif;font-size:14px;line-height:1.1;margin-top:2px}
-.tagfeld.an{background:var(--siegel);border-color:var(--siegel);color:var(--pergament)}
-.tagfeld.ruht{opacity:.38;cursor:default}
+.tagfeld.an{background:var(--siegel);border-color:var(--siegel);color:var(--blatt)}
+.tagfeld.ruht{opacity:.36;cursor:default}
 .tagfeld:disabled{cursor:default}
 
 .zaehler{display:flex;align-items:center;gap:11px;margin:10px 0 0}
-.zaehler .stand{font-family:'Cinzel',serif;font-weight:700;font-size:24px;color:var(--siegel)}
+.zaehler .stand{font-family:'UnifrakturCook',serif;font-weight:700;font-size:26px;color:var(--siegel)}
 .zaehler .von{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--tinte-blass);flex:1}
 .rundbtn{
   width:34px;height:34px;flex:none;cursor:pointer;padding:0;border-radius:50%;
-  background:rgba(255,255,255,.35);border:1.5px solid var(--tinte);color:var(--tinte);
+  background:var(--feld);border:1.5px solid var(--tinte);color:var(--tinte);
   font-family:'Cinzel',serif;font-size:17px;line-height:1;
 }
-.rundbtn:disabled{opacity:.35;cursor:default}
+.rundbtn:disabled{opacity:.34;cursor:default}
+
+/* Der Verlauf seit Beginn — bewusst kleiner als die laufende Woche.
+   Er soll den Blick nicht von heute wegziehen. */
+.verlauf{margin:10px 0 0;overflow-x:auto;padding-bottom:3px}
+.verlaufgitter{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,11px);gap:2px}
+.verlaufgitter.perioden{grid-template-rows:14px}
+.zelle{width:11px;height:11px;background:var(--feld);border:1px solid var(--linie)}
+.zelle.getan{background:var(--siegel);border-color:var(--siegel)}
+/* Verpasst heißt: leer, aber umrandet. Gepunktet wäre bei 11 px Brei. */
+.zelle.verpasst{background:none;border-color:var(--siegel)}
+.zelle.ausserhalb{opacity:.24}
+.verlaufgitter.perioden .zelle{width:22px;height:14px;
+  font-family:'IBM Plex Mono',monospace;font-size:8px;line-height:12px;text-align:center;color:var(--tinte-blass)}
+.verlaufgitter.perioden .zelle.getan{color:var(--blatt)}
+.verlauflegende{display:flex;gap:10px;margin:5px 0 0;
+  font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.06em;color:var(--tinte-blass)}
 
 /* --- Formularfelder ------------------------------------------- */
 
@@ -248,73 +329,81 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
 .feld > label{display:block;margin-bottom:4px;
   font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;color:var(--tinte-blass)}
 .feld input[type=text],.feld textarea,.feld select{
-  width:100%;background:rgba(255,255,255,.4);color:var(--tinte);
-  border:1px solid rgba(46,36,24,.35);padding:8px 9px;
-  font-family:'Caveat',cursive;font-size:19px;line-height:1.25;
+  width:100%;background:var(--feld);color:var(--tinte);
+  border:1.5px solid var(--linie);padding:8px 9px;
+  font-family:'Parisienne',cursive;font-size:21px;line-height:1.3;
 }
 .feld input[type=number]{
-  width:76px;background:rgba(255,255,255,.4);color:var(--tinte);
-  border:1px solid rgba(46,36,24,.35);padding:7px 8px;
+  width:76px;background:var(--feld);color:var(--tinte);
+  border:1.5px solid var(--linie);padding:7px 8px;
   font-family:'IBM Plex Mono',monospace;font-size:13px;
 }
 .feld select{font-family:'IBM Plex Mono',monospace;font-size:12px}
 .feld textarea{min-height:110px;resize:vertical}
 .feld input:focus,.feld textarea:focus,.feld select:focus{outline:none;border-color:var(--siegel)}
 
-/* --- Fenster (Modal) ------------------------------------------ */
+/* --- Fenster -------------------------------------------------- */
 
-.modal{
-  position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
-  padding:16px;background:rgba(10,5,12,.78);
-}
+.modal{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+  padding:16px;background:rgba(22,10,26,.72)}
 .modal[hidden]{display:none}
 .modalblatt{
-  width:100%;max-width:440px;max-height:86vh;overflow-y:auto;
-  background:linear-gradient(160deg, var(--pergament), var(--pergament-tief));
-  color:var(--tinte);padding:15px 15px 17px;border-radius:3px 7px 4px 8px;
-  box-shadow:0 18px 44px rgba(0,0,0,.6), 0 0 0 1px rgba(var(--primary-rgb),.35);
+  position:relative;width:100%;max-width:440px;max-height:86vh;overflow-y:auto;
+  background:
+    radial-gradient(70% 40% at 24% 5%, var(--glanz), transparent 62%),
+    linear-gradient(162deg, var(--blatt), var(--blatt-tief));
+  color:var(--tinte);padding:14px;border:2px solid var(--rahmen);
+  box-shadow:0 18px 44px rgba(0,0,0,.6);
 }
-.modalkopf{display:flex;align-items:flex-start;gap:10px;margin-bottom:6px}
-.modalkopf h2{margin:0;flex:1;font-family:'Cinzel',serif;font-weight:700;font-size:15px;
-  letter-spacing:.07em;color:var(--siegel);line-height:1.2}
+.modalkopf{display:flex;align-items:flex-start;gap:10px;margin-bottom:5px}
+.modalkopf h2{margin:0;flex:1;font-family:'UnifrakturCook',serif;font-weight:700;font-size:20px;
+  line-height:1.15;color:var(--siegel)}
 .schliessen{background:none;border:none;cursor:pointer;color:var(--tinte-blass);
-  font-size:20px;line-height:1;padding:0 2px;flex:none}
+  font-size:20px;line-height:1;width:28px;height:28px;padding:0;flex:none}
 
 /* --- Einstellungen -------------------------------------------- */
 
 .abschnitt{margin:13px 0 0}
-.abschnitt h3{margin:0 0 6px;font-family:'Cinzel',serif;font-weight:700;font-size:12px;
-  letter-spacing:.1em;color:var(--primary)}
-.hinweis{font-size:12px;line-height:1.5;color:var(--muted);margin:0 0 9px}
+.abschnitt h3{margin:0 0 6px;font-family:'UnifrakturCook',serif;font-weight:700;font-size:17px;
+  line-height:1.2;color:var(--siegel)}
+.hinweis{font-family:'Parisienne',cursive;font-size:19px;line-height:1.35;color:var(--tinte-blass);margin:0 0 9px}
 
-/* --- Fußzeile -------------------------------------------------- */
+/* --- Fußzeile --------------------------------------------------
+   Die Schrift hier bleibt Mono: sechs Marken auf 320 px müssen
+   lesbar bleiben, und gebrochene Schrift wäre das nicht. */
 
 nav{
   display:flex;gap:2px;justify-content:center;
   padding:4px 4px calc(5px + env(safe-area-inset-bottom,0px));
-  border-top:1px solid var(--hairline);background:var(--bg-deep);
+  border-top:2px solid var(--rahmen);
+  background:linear-gradient(0deg, var(--blatt), var(--blatt-tief));
+  box-shadow:0 -2px 0 var(--beschlag);
 }
 .tab{
-  flex:1;cursor:pointer;background:none;border:none;color:var(--dim);
+  flex:1;cursor:pointer;background:none;border:none;color:var(--tinte-blass);
   font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:7.5px;
   letter-spacing:.02em;padding:4px 1px;
   display:flex;flex-direction:column;align-items:center;gap:1px;
 }
 .tab .ic{font-size:16px;line-height:1.1;font-family:'Cinzel',serif}
-.tab.on{color:var(--primary);text-shadow:0 0 10px rgba(var(--primary-rgb),.5)}
-.tab:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+.tab .muenzic{width:17px;height:17px;display:block;filter:saturate(.35) opacity(.75)}
+.tab.on{color:var(--siegel)}
+.tab.on .muenzic{filter:none}
+.tab:focus-visible{outline:2px solid var(--siegel);outline-offset:-2px}
 
 /* --- Schmale Geräte -------------------------------------------- */
 
 @media (max-width:384px){
-  .kopftitel{font-size:15px;letter-spacing:.1em}
-  header{padding-left:11px;padding-right:11px;gap:7px}
-  .headright{gap:7px}
-  .knoten{width:74px;min-height:74px}
+  .kopftitel{font-size:20px}
+  header{padding-left:11px;padding-right:11px;gap:6px}
+  .headright{gap:5px}
+  .knoten{width:72px;min-height:72px}
+  .knoten .name{font-size:11px}
   .knoten.mitte{width:86px;min-height:86px}
 }
 @media (max-width:344px){
-  .kopftitel{font-size:13px}
+  .kopftitel{font-size:18px}
   .tab{font-size:6.8px}
   .tab .ic{font-size:14px}
+  .tab .muenzic{width:15px;height:15px}
 }

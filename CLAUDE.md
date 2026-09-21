@@ -27,5 +27,20 @@ Benachrichtigungen und wertet nichts aus — sie zählt nur, was getan ist.
   braucht `left:50%;top:50%` — ohne das klebt er in der Ecke.
 - **Belohnungsbilder bleiben PNG.** Als JPEG umgewandelt bekäme ein
   freigestelltes Bild einen schwarzen Grund.
-- **Das Pergament ist app-eigen**, die Leuchtfarben kommen aus `tokens.css`.
-  Auf Pergament gehört Tinte: `.seite .knopf` färbt die Knöpfe darin um.
+- **Zwei Modi, ein Farbvorrat.** Standard ist Pergament, der dunkle Modus
+  tauscht denselben Satz Tokens (`--grund`, `--blatt`, `--tinte`, `--siegel`,
+  …) über `[data-modus="dunkel"]` aus. Wer eine Farbe fest verdrahtet statt
+  ein Token zu nehmen, bricht einen der beiden Modi — und zwar den, den man
+  gerade nicht ansieht.
+- **Die Münze ist eine einzige Gravur.** Sie steht als `<defs><g id="muenzform">`
+  im `index.html`; Kopfzeile, Preis und Leiste verweisen nur darauf. Eine
+  zweite Zeichnung anzulegen hieße, dass die Münze an drei Stellen
+  auseinanderläuft.
+- **Gebrochene Schrift verträgt keine Versalien.** Überschriften stehen
+  deshalb gemischt („Jahresvorsätze"), nicht in Großbuchstaben. Versalien
+  bleiben den Mono-Marken vorbehalten.
+- **Der Habit-Verlauf liest die Log-Schlüssel rückwärts**: `2026-09-21` beim
+  Takt, `w2026-09-21#ab` oder `m2026-09#ab` bei der Anzahl. `habitBeginn`
+  normalisiert das; wer das Schlüsselformat ändert, muss dort nachziehen.
+- **Das Pentagramm liegt im Ring, nicht in der Mitte** — unter dem
+  Jahresknoten wäre es schlicht nicht zu sehen.

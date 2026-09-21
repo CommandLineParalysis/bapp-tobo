@@ -12,7 +12,7 @@
 /* ---------- Daten ---------- */
 
 const WOCHENTAGE = ['MO','DI','MI','DO','FR','SA','SO'];
-const WOCHENTAGE_LANG = ['MONTAG','DIENSTAG','MITTWOCH','DONNERSTAG','FREITAG','SAMSTAG','SONNTAG'];
+const WOCHENTAGE_LANG = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
 
 function leererVault(){
   return {
@@ -23,7 +23,7 @@ function leererVault(){
     todo: { tage: {}, monate: {} },
     pflichten: [],
     belohnungen: [],
-    theme: 'teal',
+    modus: 'hell',
     backup: null,
   };
 }
@@ -40,7 +40,7 @@ function vaultPayload(){
   return {
     muenzen: DATA.muenzen, vorsaetze: DATA.vorsaetze, habits: DATA.habits,
     ziele: DATA.ziele, todo: DATA.todo, pflichten: DATA.pflichten,
-    belohnungen: DATA.belohnungen, theme: DATA.theme, backup: DATA.backup,
+    belohnungen: DATA.belohnungen, modus: DATA.modus, backup: DATA.backup,
   };
 }
 
@@ -105,7 +105,7 @@ function adoptVault(saved){
     bild: b.bild || null,
   }));
 
-  v.theme = ['teal','orange','pink'].includes(saved.theme) ? saved.theme : 'teal';
+  v.modus = saved.modus === 'dunkel' ? 'dunkel' : 'hell';
   v.backup = saved.backup || null;
   return v;
 }
@@ -202,6 +202,20 @@ function h(tag, attrs, ...kinder){
   return el;
 }
 
+/* Die Zaubermünze. Gezeichnet ist sie einmal im index.html; hier wird
+   nur noch darauf verwiesen, damit Kopfzeile, Preis und Leiste
+   garantiert dasselbe Stück zeigen. */
+function muenzZeichen(klasse){
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', klasse || 'muenze');
+  svg.setAttribute('viewBox', '0 0 40 40');
+  svg.setAttribute('aria-hidden', 'true');
+  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  use.setAttribute('href', '#muenzform');
+  svg.appendChild(use);
+  return svg;
+}
+
 function knopf(text, bei, art){
   return h('button', { class: 'knopf' + (art ? ' ' + art : ''), onclick: bei, text });
 }
@@ -235,9 +249,8 @@ function punktZeile(p, beiAenderung){
       await persist(); beiAenderung();
     },
   }));
-  zeile.appendChild(h('span', {
-    class: 'lohn', text: '◉' + p.lohn,
-    title: 'Zaubermünzen für diesen Punkt',
+  const lohnfeld = h('span', {
+    class: 'lohn', title: 'Zaubermünzen für diesen Punkt',
     onclick: async () => {
       const neu = parseInt(prompt('Wie viele Zaubermünzen ist das wert?', p.lohn), 10);
       if (!Number.isFinite(neu) || neu < 0) return;
@@ -246,7 +259,8 @@ function punktZeile(p, beiAenderung){
       p.lohn = neu;
       await persist(); beiAenderung();
     },
-  }));
+  }, muenzZeichen('muenze'), h('span', { text: String(p.lohn) }));
+  zeile.appendChild(lohnfeld);
   zeile.appendChild(h('button', {
     class: 'weg', text: '×', 'aria-label': 'Punkt löschen',
     onclick: async () => {
@@ -307,10 +321,12 @@ function fensterAuffrischen(){
 
 /* ---------- Verteiler ---------- */
 
+/* Gebrochene Schrift liest sich in Versalien schlecht — deshalb hier
+   gemischt statt durchgehend groß. */
 const TITEL = {
-  vorsaetze:'JAHRESVORSÄTZE', habits:'HABITS', ziele:'ZIELE',
-  todo:'TO DO', pflichten:'VERANTWORTUNG', belohnungen:'BELOHNUNGEN',
-  einstellungen:'EINSTELLUNGEN',
+  vorsaetze:'Jahresvorsätze', habits:'Habits', ziele:'Ziele',
+  todo:'To Do', pflichten:'Verantwortung', belohnungen:'Belohnungen',
+  einstellungen:'Einstellungen',
 };
 
 function go(screen){
@@ -355,29 +371,16 @@ function vorsaetzeSeite(){
   const v = DATA.vorsaetze;
   const wurzel = h('div', {});
 
-  const feld = h('div', { class:'kreisfeld', id:'kreisfeld' });
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 100 100');
-  svg.setAttribute('preserveAspectRatio', 'none');
-  feld.appendChild(svg);
-
   const n = v.bereiche.length;
   const radius = n > 6 ? 37 : 34;
+  const feld = h('div', { class:'kreisfeld', id:'kreisfeld' });
+  feld.appendChild(zirkel(v.bereiche.map((_, i) => winkelFuer(i, n)), radius));
+
   v.bereiche.forEach((b, i) => {
-    const winkel = (i / Math.max(n, 1)) * Math.PI * 2 - Math.PI / 2;
-    const x = 50 + Math.cos(winkel) * radius;
-    const y = 50 + Math.sin(winkel) * radius;
-
-    const linie = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    linie.setAttribute('x1', 50); linie.setAttribute('y1', 50);
-    linie.setAttribute('x2', x);  linie.setAttribute('y2', y);
-    linie.setAttribute('stroke', 'rgba(var(--primary-rgb),.5)');
-    linie.setAttribute('stroke-width', '.6');
-    linie.setAttribute('vector-effect', 'non-scaling-stroke');
-    svg.appendChild(linie);
-
+    const w = winkelFuer(i, n);
     feld.appendChild(h('button', {
-      class:'knoten', style:'left:' + x + '%;top:' + y + '%',
+      class:'knoten',
+      style:'left:' + (50 + Math.cos(w)*radius) + '%;top:' + (50 + Math.sin(w)*radius) + '%',
       onclick: () => zeigeFenster({ art:'bereich', id:b.id }),
     },
       h('span', { class:'name', text: b.name || '…' }),
@@ -398,7 +401,7 @@ function vorsaetzeSeite(){
   }
 
   wurzel.appendChild(h('button', {
-    class:'neu', id:'neuerbereich', text:'+ LEBENSBEREICH',
+    class:'neu', id:'neuerbereich', text:'+ Lebensbereich',
     onclick: async () => {
       const name = (prompt('Name des Lebensbereichs:') || '').trim();
       if (!name) return;
@@ -417,6 +420,68 @@ function vorsaetzeSeite(){
     },
   }));
   return wurzel;
+}
+
+function winkelFuer(i, n){ return (i / Math.max(n, 1)) * Math.PI * 2 - Math.PI / 2; }
+
+/* Der Magiezirkel unter den Knoten: zwei Ringe, ein Zeichenkranz,
+   ein Pentagramm und je eine Speiche zu jedem Lebensbereich. Alles
+   gezeichnet, nichts nachgeladen. */
+const ZIRKELZEICHEN = ['☉','☾','☿','♀','♁','♃','♄','⚹','✶','⚶','☌','✷'];
+
+function zirkel(winkel, radius){
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('class', 'zirkel');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  const el = (name, attrs) => {
+    const e = document.createElementNS(NS, name);
+    Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v));
+    svg.appendChild(e);
+    return e;
+  };
+  const tinte = 'var(--siegel)', blass = 'var(--linie)';
+
+  [radius + 9, radius + 5.5, radius - 12, 13].forEach((r, i) => {
+    el('circle', { cx:50, cy:50, r, fill:'none', stroke: i % 2 ? blass : tinte,
+                   'stroke-width': i === 0 ? .8 : .4, 'vector-effect':'non-scaling-stroke' });
+  });
+
+  // Der Zeichenkranz zwischen den beiden äußeren Ringen
+  const kranz = radius + 7.2;
+  ZIRKELZEICHEN.forEach((z, i) => {
+    const w = (i / ZIRKELZEICHEN.length) * Math.PI * 2 - Math.PI / 2;
+    const t = el('text', {
+      x: 50 + Math.cos(w) * kranz, y: 50 + Math.sin(w) * kranz,
+      fill: tinte, 'font-size': 3.6, 'text-anchor':'middle', 'dominant-baseline':'central',
+      opacity:.75,
+    });
+    t.textContent = z;
+  });
+
+  /* Das Pentagramm liegt im Ring um die Mitte, nicht in ihr: unter dem
+     Jahresknoten wäre es schlicht nicht zu sehen. Seine Spitzen sitzen
+     auf dem inneren Kreis. */
+  const stern = radius - 12;
+  const p = [];
+  for (let i = 0; i < 5; i++){
+    const w = (i * 2 / 5) * Math.PI * 2 - Math.PI / 2;
+    p.push((50 + Math.cos(w) * stern).toFixed(2) + ',' + (50 + Math.sin(w) * stern).toFixed(2));
+  }
+  el('polygon', { points: p.join(' '), fill:'none', stroke: tinte, 'stroke-width':.45,
+                  'vector-effect':'non-scaling-stroke', opacity:.85 });
+
+  // Die Speichen zu den Knoten, mit einem Ring dort, wo sie den
+  // inneren Kreis durchstoßen
+  winkel.forEach(w => {
+    el('line', { x1: 50 + Math.cos(w) * 13, y1: 50 + Math.sin(w) * 13,
+                 x2: 50 + Math.cos(w) * radius, y2: 50 + Math.sin(w) * radius,
+                 stroke: tinte, 'stroke-width':.4, 'vector-effect':'non-scaling-stroke', opacity:.7 });
+    el('circle', { cx: 50 + Math.cos(w) * (radius - 12), cy: 50 + Math.sin(w) * (radius - 12),
+                   r:1.5, fill:'none', stroke: tinte, 'stroke-width':.4,
+                   'vector-effect':'non-scaling-stroke' });
+  });
+  return svg;
 }
 
 /* ---------- 3. Ziele ---------- */
@@ -439,7 +504,7 @@ function zieleSeite(){
     wurzel.appendChild(gitter);
   }
   wurzel.appendChild(h('button', {
-    class:'neu', id:'neuesziel', text:'+ ZIEL',
+    class:'neu', id:'neuesziel', text:'+ Ziel',
     onclick: async () => {
       const name = (prompt('Wie heißt das Ziel?') || '').trim();
       if (!name) return;
@@ -470,7 +535,7 @@ function pflichtenSeite(){
     wurzel.appendChild(gitter);
   }
   wurzel.appendChild(h('button', {
-    class:'neu', id:'neuepflicht', text:'+ BEREICH',
+    class:'neu', id:'neuepflicht', text:'+ Bereich',
     onclick: async () => {
       const name = (prompt('Wofür stehst du gerade?') || '').trim();
       if (!name) return;
@@ -498,7 +563,7 @@ function todoSeite(){
 
   wurzel.appendChild(h('button', {
     class:'monatsknopf', id:'monatsknopf',
-    text:'MONATSLISTE · ' + monatsName(tage[3]),
+    text:'Monatsliste · ' + monatsName(tage[3]),
     onclick: () => zeigeFenster({ art:'monat', id: monatsSchluessel(tage[3]) }),
   }));
 
@@ -527,8 +592,8 @@ function todoSeite(){
 }
 
 function monatsName(d){
-  const namen = ['JÄNNER','FEBRUAR','MÄRZ','APRIL','MAI','JUNI','JULI',
-                 'AUGUST','SEPTEMBER','OKTOBER','NOVEMBER','DEZEMBER'];
+  const namen = ['Jänner','Februar','März','April','Mai','Juni','Juli',
+                 'August','September','Oktober','November','Dezember'];
   return namen[d.getMonth()] + ' ' + d.getFullYear();
 }
 
@@ -548,15 +613,21 @@ function habitsSeite(){
   }
 
   DATA.habits.forEach(hb => {
-    const blatt = seite(hb.name || 'Ohne Namen', habitMeta(hb));
+    const blatt = seite(null, null);
+    blatt.appendChild(h('button', {
+      class:'seitentitel', 'data-habit': hb.id,
+      style:'background:none;border:none;padding:0;width:100%;cursor:pointer;text-align:left',
+      onclick: () => zeigeFenster({ art:'habit', id:hb.id }),
+    },
+      h('span', { text: hb.name || 'Ohne Namen' }),
+      h('span', { class:'zier' }),
+      h('span', { class:'seitenmeta', text: habitMeta(hb) })));
     blatt.appendChild(hb.art === 'takt' ? taktFelder(hb) : anzahlZaehler(hb));
-    blatt.appendChild(h('div', { class:'reihe' },
-      knopf('BEARBEITEN', () => zeigeFenster({ art:'habit', id:hb.id }), 'still')));
     wurzel.appendChild(blatt);
   });
 
   wurzel.appendChild(h('button', {
-    class:'neu', id:'neuerhabit', text:'+ GEWOHNHEIT',
+    class:'neu', id:'neuerhabit', text:'+ Gewohnheit',
     onclick: async () => {
       const name = (prompt('Welche Gewohnheit?') || '').trim();
       if (!name) return;
@@ -626,6 +697,113 @@ function anzahlZaehler(hb){
   return reihe;
 }
 
+/* ---------- Verlauf seit Beginn der Aufzeichnung ----------
+   Bewusst klein gerastert: der Blick soll bei heute bleiben und den
+   Verlauf nur nebenbei mitnehmen. */
+
+/* Der erste Tag, an dem überhaupt etwas eingetragen wurde. Die
+   Schlüssel sehen je Art anders aus: '2026-09-21' beim Takt,
+   'w2026-09-21#ab' oder 'm2026-09#ab' bei der Anzahl. */
+function habitBeginn(hb){
+  const tage = Object.keys(hb.log).filter(k => hb.log[k]).map(k => {
+    const roh = k.replace(/^[wm]/, '').split('#')[0];
+    return roh.length === 7 ? roh + '-01' : roh;
+  }).sort();
+  if (!tage.length) return null;
+  const d = new Date(tage[0] + 'T12:00:00');
+  return isNaN(d) ? null : d;
+}
+
+function habitVerlauf(hb){
+  const beginn = habitBeginn(hb);
+  if (!beginn) return null;
+
+  if (hb.art === 'takt'){
+    // Spalten sind Wochen, Zeilen die sieben Tage.
+    const erste = new Date(beginn);
+    erste.setDate(erste.getDate() - ((erste.getDay() + 6) % 7));
+    const heute = new Date(); heute.setHours(12,0,0,0);
+    const wochen = [];
+    for (let w = new Date(erste); w <= heute; w.setDate(w.getDate() + 7)){
+      const spalte = [];
+      for (let i = 0; i < 7; i++){
+        const d = new Date(w); d.setDate(w.getDate() + i);
+        const s = alsSchluessel(d);
+        spalte.push({
+          schluessel: s,
+          kuenftig: d > heute || d < beginn,
+          vorgesehen: hb.tage.includes(i),
+          getan: !!hb.log[s],
+        });
+      }
+      wochen.push(spalte);
+    }
+    return { art:'takt', spalten: wochen, beginn };
+  }
+
+  // Bei der Anzahl ist jede Spalte ein Zeitraum.
+  const perioden = [];
+  const heute = new Date(); heute.setHours(12,0,0,0);
+  if (hb.zeitraum === 'woche'){
+    const lauf = new Date(beginn);
+    lauf.setDate(lauf.getDate() - ((lauf.getDay() + 6) % 7));
+    for (; lauf <= heute; lauf.setDate(lauf.getDate() + 7)){
+      perioden.push('w' + alsSchluessel(new Date(lauf)));
+    }
+  } else {
+    const lauf = new Date(beginn.getFullYear(), beginn.getMonth(), 15, 12);
+    for (; lauf <= heute; lauf.setMonth(lauf.getMonth() + 1)){
+      perioden.push('m' + monatsSchluessel(lauf));
+    }
+  }
+  return {
+    art:'anzahl', beginn,
+    spalten: perioden.map(pr => ({
+      schluessel: pr,
+      stand: Object.keys(hb.log).filter(k => k.startsWith(pr + '#') && hb.log[k]).length,
+    })),
+  };
+}
+
+function verlaufBlock(hb){
+  const v = habitVerlauf(hb);
+  if (!v) return h('div', { class:'leer', style:'font-size:18px;padding:12px 6px',
+                            text:'Noch nichts aufgezeichnet.' });
+
+  const feld = h('div', { class:'verlauf', id:'verlauf' });
+  const gitter = h('div', { class:'verlaufgitter' + (v.art === 'anzahl' ? ' perioden' : '') });
+
+  if (v.art === 'takt'){
+    v.spalten.forEach(spalte => spalte.forEach(tag => {
+      const klassen = ['zelle'];
+      if (tag.getan) klassen.push('getan');
+      else if (!tag.kuenftig && tag.vorgesehen) klassen.push('verpasst');
+      if (!tag.vorgesehen || tag.kuenftig) klassen.push('ausserhalb');
+      gitter.appendChild(h('div', { class: klassen.join(' '), title: tag.schluessel }));
+    }));
+  } else {
+    v.spalten.forEach(pr => {
+      const erreicht = pr.stand >= hb.anzahl;
+      gitter.appendChild(h('div', {
+        class: 'zelle' + (erreicht ? ' getan' : (pr.stand ? '' : ' ausserhalb')),
+        title: pr.schluessel.slice(1) + ': ' + pr.stand + ' von ' + hb.anzahl,
+        text: pr.stand + '/' + hb.anzahl,
+      }));
+    });
+  }
+  feld.appendChild(gitter);
+
+  const seit = v.beginn.toLocaleDateString('de-AT', { day:'2-digit', month:'2-digit', year:'numeric' });
+  const gesamt = v.art === 'takt'
+    ? v.spalten.flat().filter(t => t.getan).length
+    : v.spalten.reduce((n, pr) => n + pr.stand, 0);
+  feld.appendChild(h('div', { class:'verlauflegende' },
+    h('span', { text: 'SEIT ' + seit }),
+    h('span', { text: gesamt + '× GETAN' }),
+    h('span', { text: v.spalten.length + (v.art === 'takt' ? ' WOCHEN' : ' ZEITRÄUME') })));
+  return feld;
+}
+
 async function habitSchalten(hb, tag){
   if (hb.log[tag]){ delete hb.log[tag]; muenzen(-hb.lohn); }
   else { hb.log[tag] = true; muenzen(hb.lohn); }
@@ -669,13 +847,13 @@ function belohnungenSeite(){
       kachel.appendChild(h('h3', { text: b.name || 'Ohne Namen', style:'margin-top:7px' }));
       if (b.text) kachel.appendChild(h('div', { class:'vorschau', text: b.text }));
       kachel.appendChild(h('div', { class:'preis' },
-        h('span', { class:'muenze' }), h('span', { class:'zahl', text: b.preis })));
+        muenzZeichen('muenze'), h('span', { class:'zahl', text: b.preis })));
       gitter.appendChild(kachel);
     });
     wurzel.appendChild(gitter);
   }
   wurzel.appendChild(h('button', {
-    class:'neu', id:'neuebelohnung', text:'+ BELOHNUNG',
+    class:'neu', id:'neuebelohnung', text:'+ Belohnung',
     onclick: async () => {
       const name = (prompt('Wie heißt die Belohnung?') || '').trim();
       if (!name) return;
@@ -796,6 +974,9 @@ function fensterHabit(id){
   const hb = DATA.habits.find(x => x.id === id);
   if (!hb) return fensterSchliessen();
   fensterOeffnen(hb.name || 'Gewohnheit', blatt => {
+    blatt.appendChild(h('div', { class:'seitenmeta', text:'VERLAUF SEIT BEGINN' }));
+    blatt.appendChild(verlaufBlock(hb));
+
     const art = h('div', { class:'reihe' });
     [['takt','FESTE TAGE'], ['anzahl','SO OFT']].forEach(([wert, beschriftung]) => {
       art.appendChild(h('button', {
@@ -908,29 +1089,22 @@ async function lohnBildWaehlen(b){
 function einstellungenSeite(){
   const wurzel = h('div', {});
 
-  const farben = h('div', { class:'abschnitt' }, h('h3', { text:'FARBE' }));
-  const wahl = h('div', { class:'swatches', id:'swatches', role:'group', 'aria-label':'Primärfarbe wählen' });
-  ['teal','orange','pink'].forEach(t => {
-    wahl.appendChild(h('button', {
-      class:'swatch' + (DATA.theme === t ? ' on' : ''), 'data-theme':t,
-      'aria-label':'Primärfarbe ' + t,
-      onclick: async () => {
-        DATA.theme = t;
-        document.documentElement.dataset.theme = t;
-        await persist(); render();
-      },
-    }, h('i', {})));
-  });
-  farben.appendChild(wahl);
-  wurzel.appendChild(farben);
+  const licht = h('div', { class:'abschnitt' }, h('h3', { text:'Licht' }));
+  licht.appendChild(h('p', { class:'hinweis',
+    text: DATA.modus === 'dunkel'
+      ? 'Das Buch liegt im Dunkeln. Der Mond oben schaltet zurück aufs Pergament.'
+      : 'Pergament bei Tageslicht. Der Mond oben legt das Buch ins Dunkel.' }));
+  licht.appendChild(h('div', { class:'reihe' },
+    knopf(DATA.modus === 'dunkel' ? '☀ PERGAMENT' : '☾ DUNKEL', modusSchalten)));
+  wurzel.appendChild(licht);
 
-  const muenz = h('div', { class:'abschnitt' }, h('h3', { text:'ZAUBERMÜNZEN' }));
+  const muenz = h('div', { class:'abschnitt' }, h('h3', { text:'Zaubermünzen' }));
   muenz.appendChild(h('p', { class:'hinweis',
     text:'Im Beutel liegen ' + DATA.muenzen + '. Jeder abgehakte Punkt bringt, was an ihm steht — '
        + 'eine, wenn du nichts anderes einstellst. Tipp im Text auf die Zahl hinter einem Punkt, um sie zu ändern.' }));
   wurzel.appendChild(muenz);
 
-  const sicherung = h('div', { class:'abschnitt' }, h('h3', { text:'SICHERUNG' }));
+  const sicherung = h('div', { class:'abschnitt' }, h('h3', { text:'Sicherung' }));
   sicherung.appendChild(h('p', { class:'hinweis', text: DATA.backup
     ? 'Zuletzt gesichert am ' + new Date(DATA.backup.at).toLocaleDateString('de-AT')
       + ' — der Ordner „' + BACKUP_DIR + '" in den Dokumenten wird beim Schließen nachgezogen.'
@@ -1079,10 +1253,25 @@ async function restoreAusOrdner(){
 
 /* ---------- Start ---------- */
 
+async function modusSchalten(){
+  DATA.modus = DATA.modus === 'dunkel' ? 'hell' : 'dunkel';
+  modusAnwenden();
+  await persist();
+  render();
+}
+
+function modusAnwenden(){
+  document.documentElement.dataset.modus = DATA.modus;
+  const btn = document.getElementById('modusbtn');
+  btn.textContent = DATA.modus === 'dunkel' ? '☀' : '☾';
+  btn.setAttribute('aria-label', DATA.modus === 'dunkel' ? 'Heller Modus' : 'Dunkler Modus');
+}
+
 function bindeRahmen(){
   document.querySelectorAll('#nav .tab').forEach(t => { t.onclick = () => go(t.dataset.screen); });
   document.getElementById('settingsbtn').onclick = () => go('einstellungen');
   document.getElementById('beutel').onclick = () => go('belohnungen');
+  document.getElementById('modusbtn').onclick = modusSchalten;
 }
 
 async function start(){
@@ -1093,7 +1282,7 @@ async function start(){
     console.warn('Bestand nicht lesbar', e);
     DATA = leererVault();
   }
-  document.documentElement.dataset.theme = DATA.theme;
+  modusAnwenden();
   render();
 
   if (Store.isNative && window.Capacitor.Plugins.App){

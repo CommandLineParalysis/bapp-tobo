@@ -12,7 +12,8 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
 
   await wait(60);
   const T = bruecke(['DATA','state','adoptVault','mergeVault','alsSchluessel','wochenstart',
-                     'tageDerWoche','zeitraumSchluessel','standImZeitraum','muenzen']);
+                     'tageDerWoche','zeitraumSchluessel','standImZeitraum','muenzen',
+                     'habitVerlauf','habitBeginn','monatsSchluessel']);
 
   const tab = name => $$('#nav .tab').find(t => t.dataset.screen === name);
   const muenzstand = () => Number($('#muenzzahl').textContent);
@@ -114,6 +115,30 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     return 'aus 1 wird 5, Rücknahme stimmt';
   });
 
+  await p.check('Unter den Knoten liegt ein Magiezirkel', () => {
+    const svg = $('#kreisfeld svg.zirkel');
+    if (!svg) throw new Error('Kein Zirkel');
+    if (svg.querySelectorAll('circle').length < 4) throw new Error('Ringe fehlen');
+    if (!svg.querySelector('polygon')) throw new Error('Pentagramm fehlt');
+    const zeichen = svg.querySelectorAll('text');
+    if (zeichen.length < 8) throw new Error('Zeichenkranz: ' + zeichen.length);
+    const speichen = svg.querySelectorAll('line');
+    if (speichen.length !== T.DATA.vorsaetze.bereiche.length)
+      throw new Error('Speichen: ' + speichen.length);
+    return svg.querySelectorAll('circle').length + ' Ringe, ' + zeichen.length + ' Zeichen, '
+         + speichen.length + ' Speichen';
+  });
+
+  await p.check('Die Münze ist überall dieselbe Gravur', () => {
+    const stempel = $('#muenzstempel #muenzform');
+    if (!stempel) throw new Error('Keine Gravur im Dokument');
+    const kopf = $('#beutel .muenze use');
+    if (!kopf || kopf.getAttribute('href') !== '#muenzform') throw new Error('Kopfzeile zeigt etwas anderes');
+    const leiste = $('#nav .muenzic use');
+    if (!leiste || leiste.getAttribute('href') !== '#muenzform') throw new Error('Leiste zeigt etwas anderes');
+    return 'Kopfzeile und Leiste';
+  });
+
   /* --- Habits --- */
 
   await p.check('Gewohnheit mit festen Tagen anlegen', async () => {
@@ -154,7 +179,7 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
   });
 
   await p.check('Gewohnheit auf "so oft" umstellen', async () => {
-    click($$('.seite .knopf').find(b => b.textContent === 'BEARBEITEN'));
+    click($('[data-habit]'));
     await wait(30);
     click($$('#modalblatt .knopf').find(b => b.textContent === 'SO OFT'));
     await wait(30);
@@ -198,6 +223,54 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     if (wocheKey === monatKey) throw new Error('gleicher Schlüssel: ' + wocheKey);
     if (!wocheKey.startsWith('w') || !monatKey.startsWith('m')) throw new Error(wocheKey + ' / ' + monatKey);
     return wocheKey + ' ≠ ' + monatKey;
+  });
+
+  await p.check('Der Verlauf reicht bis zum ersten Eintrag zurück', () => {
+    const hb = T.DATA.habits[0];
+    hb.art = 'takt'; hb.tage = [0,1,2,3,4,5,6];
+    const frueher = new Date(); frueher.setDate(frueher.getDate() - 20);
+    hb.log[T.alsSchluessel(frueher)] = true;
+    const v = T.habitVerlauf(hb);
+    if (!v) throw new Error('Kein Verlauf');
+    if (v.art !== 'takt') throw new Error('Art: ' + v.art);
+    if (v.spalten.length < 3) throw new Error('Wochen: ' + v.spalten.length);
+    if (v.spalten.some(sp => sp.length !== 7)) throw new Error('Spalte ohne sieben Tage');
+    const getan = v.spalten.flat().filter(t => t.getan).length;
+    if (getan < 1) throw new Error('nichts als getan erkannt');
+    return v.spalten.length + ' Wochen, ' + getan + '× getan';
+  });
+
+  await p.check('Ohne Aufzeichnung gibt es keinen Verlauf', () => {
+    if (T.habitVerlauf({ art:'takt', tage:[0], log:{} }) !== null) throw new Error('Verlauf erfunden');
+    return 'null';
+  });
+
+  await p.check('Bei "so oft" ist jede Spalte ein Zeitraum', () => {
+    const hb = { art:'anzahl', anzahl:2, zeitraum:'monat', tage:[], log:{} };
+    const jetzt = 'm' + T.monatsSchluessel(new Date());
+    const vorigerMonat = new Date(); vorigerMonat.setMonth(vorigerMonat.getMonth() - 2);
+    hb.log['m' + T.monatsSchluessel(vorigerMonat) + '#a'] = true;
+    hb.log[jetzt + '#b'] = true;
+    hb.log[jetzt + '#c'] = true;
+    const v = T.habitVerlauf(hb);
+    if (v.art !== 'anzahl') throw new Error('Art: ' + v.art);
+    if (v.spalten.length !== 3) throw new Error('Zeiträume: ' + v.spalten.length);
+    const letzte = v.spalten[v.spalten.length - 1];
+    if (letzte.stand !== 2) throw new Error('Stand im letzten Zeitraum: ' + letzte.stand);
+    return v.spalten.length + ' Monate, zuletzt 2/2';
+  });
+
+  await p.check('Der Verlauf steht im Fenster der Gewohnheit', async () => {
+    click(tab('habits'));
+    await wait(25);
+    click($('[data-habit]'));
+    await wait(30);
+    if (!$('#verlauf')) throw new Error('Kein Verlauf im Fenster');
+    if (!$('#verlauf .zelle')) throw new Error('Keine Zellen');
+    if (!/SEIT /.test($('#verlauf').textContent)) throw new Error('Keine Angabe seit wann');
+    click($('#modalblatt .schliessen'));
+    await wait(20);
+    return $$('#verlauf .zelle').length ? 'gezeichnet' : 'leer';
   });
 
   /* --- Ziele --- */
@@ -258,7 +331,7 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     const blaetter = $$('.seite');
     if (blaetter.length !== 7) throw new Error('Blätter: ' + blaetter.length);
     const tage = $$('.tagkopf .wt').map(e => e.textContent);
-    if (tage[0] !== 'MONTAG' || tage[6] !== 'SONNTAG') throw new Error(tage.join(','));
+    if (tage[0] !== 'Montag' || tage[6] !== 'Sonntag') throw new Error(tage.join(','));
     return tage.join(' ');
   });
 
@@ -270,7 +343,7 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
 
   await p.check('To-do eintragen und abhaken', async () => {
     setPrompts(['Brot kaufen']);
-    click($$('[data-tag]')[0]);
+    click($$('main [data-tag]')[0]);
     await wait(30);
     const schluessel = T.alsSchluessel(T.tageDerWoche(0)[0]);
     if (T.DATA.todo.tage[schluessel].length !== 1) throw new Error('nicht eingetragen');
@@ -390,7 +463,7 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
       todo: { tage: { '2026-01-01': [{ id:'t1', text:'y' }] }, monate: {} },
       pflichten: [{ id:'f1', name:'P', notiz:'n' }],
       belohnungen: [{ id:'l1', name:'B', preis:12, bild:null }],
-      theme: 'pink',
+      modus: 'dunkel',
     }));
     const v = T.adoptVault(roh);
     if (v.muenzen !== 7) throw new Error('Münzen: ' + v.muenzen);
@@ -398,15 +471,15 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     if (v.vorsaetze.bereiche[0].punkte[0].lohn !== 3) throw new Error('Lohn verloren');
     if (v.habits[0].zeitraum !== 'woche') throw new Error('Zeitraum verloren');
     if (v.todo.tage['2026-01-01'][0].lohn !== 1) throw new Error('Standardlohn fehlt');
-    if (v.theme !== 'pink') throw new Error('Theme: ' + v.theme);
+    if (v.modus !== 'dunkel') throw new Error('Modus: ' + v.modus);
     return 'alle sechs Bereiche';
   });
 
   await p.check('Unsinn im Bestand wird auf gültige Werte gebracht', () => {
-    const v = T.adoptVault({ muenzen:'viel', theme:'gold',
+    const v = T.adoptVault({ muenzen:'viel', modus:'gold',
       habits:[{ id:'h', name:'x', art:'quatsch', anzahl:-3, tage:[9,1] }] });
     if (v.muenzen !== 0) throw new Error('Münzen: ' + v.muenzen);
-    if (v.theme !== 'teal') throw new Error('Theme: ' + v.theme);
+    if (v.modus !== 'hell') throw new Error('Modus: ' + v.modus);
     if (v.habits[0].art !== 'takt') throw new Error('Art: ' + v.habits[0].art);
     if (v.habits[0].anzahl !== 2) throw new Error('Anzahl: ' + v.habits[0].anzahl);
     if (v.habits[0].tage.join() !== '1') throw new Error('Tage: ' + v.habits[0].tage.join());
@@ -445,14 +518,24 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     return 'was ausgegeben ist, bleibt ausgegeben';
   });
 
-  await p.check('Farbe umschalten wirkt und bleibt', async () => {
-    click($('#settingsbtn'));
-    await wait(25);
-    click($$('#swatches .swatch').find(s => s.dataset.theme === 'orange'));
+  await p.check('Der dunkle Modus lässt sich schalten und bleibt', async () => {
+    if (doc.documentElement.dataset.modus !== 'hell') throw new Error('Start: ' + doc.documentElement.dataset.modus);
+    click($('#modusbtn'));
     await wait(30);
-    if (doc.documentElement.dataset.theme !== 'orange') throw new Error('Thema nicht gesetzt');
-    if (T.DATA.theme !== 'orange') throw new Error('nicht im Bestand');
-    return 'orange';
+    if (doc.documentElement.dataset.modus !== 'dunkel') throw new Error('nicht umgeschaltet');
+    if (T.DATA.modus !== 'dunkel') throw new Error('nicht im Bestand');
+    click($('#modusbtn'));
+    await wait(30);
+    if (doc.documentElement.dataset.modus !== 'hell') throw new Error('nicht zurück');
+    return 'Pergament ⇄ Dunkel';
+  });
+
+  await p.check('Pergament ist die Voreinstellung', () => {
+    const v = T.adoptVault({});
+    if (v.modus !== 'hell') throw new Error('Modus: ' + v.modus);
+    if (T.adoptVault({ modus:'lila' }).modus !== 'hell') throw new Error('Unsinn nicht abgefangen');
+    if (T.adoptVault({ modus:'dunkel' }).modus !== 'dunkel') throw new Error('dunkel nicht übernommen');
+    return 'hell';
   });
 
   process.exit(p.bericht(errors) ? 1 : 0);
