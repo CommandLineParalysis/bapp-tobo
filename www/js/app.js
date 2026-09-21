@@ -32,10 +32,16 @@ function leererVault(){
 
 let DATA = leererVault();
 
+/* Verantwortung und Belohnungen stehen nicht mehr in der Leiste: die
+   eine hängt am Knopf über den Habits, die andere am Münzbeutel.
+   Deshalb merkt sich die App, von wo aus sie geöffnet wurden. */
+const NEBENBEREICHE = ['pflichten', 'belohnungen', 'einstellungen'];
+
 const state = {
   screen: 'todo',
   woche: 0,            // 0 = diese Woche, -1 die vorige, …
   offen: null,         // { art, id } — welches Fenster offen ist
+  zurueck: 'todo',     // wohin der Zurück-Knopf eines Nebenbereichs führt
 };
 
 function vaultPayload(){
@@ -146,10 +152,12 @@ async function persist(){
 /* ---------- Was von selbst verschwindet ----------
 
    Ein erreichtes Ziel bleibt dreißig Tage stehen und wird dann
-   getilgt. Vergangene Wochen im To-Do fallen mit dem Wochenwechsel
-   weg. Beides landet in DATA.getilgt, damit ein altes Backup es nicht
-   wieder hereinträgt — sonst wäre „gelöscht" nur eine Frage der Zeit
-   bis zur nächsten Wiederherstellung.                              */
+   getilgt. Seine Kennung landet in DATA.getilgt, damit ein altes
+   Backup es nicht wieder hereinträgt — sonst wäre „gelöscht" nur eine
+   Frage der Zeit bis zur nächsten Wiederherstellung.
+
+   Vergangene Wochen im To-Do bleiben dagegen stehen: man will
+   zurückblättern können.                                           */
 
 const HALTEFRIST_TAGE = 30;
 
@@ -179,8 +187,7 @@ function tilgen(id){
 
 /* Läuft beim Start. Zurück kommt ein Bericht, oder null. */
 function abgelaufenesRaeumen(){
-  const bericht = { ziele:0, tage:0 };
-
+  const bericht = { ziele:0 };
   DATA.ziele = DATA.ziele.filter(z => {
     if (z.fertigSeit && tageSeit(z.fertigSeit) >= HALTEFRIST_TAGE){
       tilgen(z.id);
@@ -189,16 +196,7 @@ function abgelaufenesRaeumen(){
     }
     return true;
   });
-
-  const diesewoche = alsSchluessel(wochenstart(0));
-  Object.keys(DATA.todo.tage).forEach(k => {
-    if (k >= diesewoche) return;
-    DATA.todo.tage[k].forEach(pt => tilgen(pt.id));
-    delete DATA.todo.tage[k];
-    bericht.tage++;
-  });
-
-  return (bericht.ziele || bericht.tage) ? bericht : null;
+  return bericht.ziele ? bericht : null;
 }
 
 /* ---------- Zaubermünzen ----------
@@ -430,9 +428,19 @@ const TITEL = {
 };
 
 function go(screen){
+  if (NEBENBEREICHE.includes(screen) && !NEBENBEREICHE.includes(state.screen)){
+    state.zurueck = state.screen;
+  }
   state.screen = screen;
   if (screen !== 'todo') state.woche = 0;
   render();
+}
+
+function zurueckKnopf(){
+  return h('button', {
+    class:'knopf still', id:'zurueck', text:'‹ ZURÜCK',
+    onclick: () => go(state.zurueck),
+  });
 }
 
 function render(){
@@ -758,6 +766,7 @@ function regalDeko(){
 
 function pflichtenSeite(){
   const wurzel = h('div', {});
+  wurzel.appendChild(h('div', { class:'reihe' }, zurueckKnopf()));
   if (!DATA.pflichten.length){
     wurzel.appendChild(seite(null, null,
       h('div', { class:'leer', text:'Noch kein Bereich. Hier gehört hinein, wofür du geradestehst.' })));
@@ -869,6 +878,10 @@ function monatsName(d){
 
 function habitsSeite(){
   const wurzel = h('div', {});
+  wurzel.appendChild(h('button', {
+    class:'farbknopf', id:'pflichtknopf', text:'⚖ Verantwortung',
+    onclick: () => go('pflichten'),
+  }));
   if (!DATA.habits.length){
     wurzel.appendChild(seite(null, null,
       h('div', { class:'leer', text:'Noch keine Gewohnheit. Eine mit festen Tagen oder eine, die nur oft genug vorkommen soll.' })));
@@ -1092,6 +1105,7 @@ async function habitZaehlen(hb, richtung){
 
 function belohnungenSeite(){
   const wurzel = h('div', {});
+  wurzel.appendChild(h('div', { class:'reihe' }, zurueckKnopf()));
   if (!DATA.belohnungen.length){
     wurzel.appendChild(seite(null, null,
       h('div', { class:'leer', text:'Noch keine Belohnung. Wofür soll sich das Sammeln lohnen?' })));
@@ -1521,10 +1535,8 @@ function mergeVault(manifest){
   dazu(DATA.pflichten, fremd.pflichten, 'pflichten');
   dazu(DATA.belohnungen, fremd.belohnungen, 'belohnungen');
 
-  const diesewoche = alsSchluessel(wochenstart(0));
   for (const [wo, quelle] of [['tage', fremd.todo.tage], ['monate', fremd.todo.monate]]){
     Object.entries(quelle).forEach(([k, liste]) => {
-      if (wo === 'tage' && k < diesewoche) return;   // vergangene Wochen sind erledigt
       const hier = DATA.todo[wo][k] || (DATA.todo[wo][k] = []);
       const bekannt = new Set(hier.map(p => p.id));
       liste.forEach(p => {

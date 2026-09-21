@@ -21,15 +21,6 @@
       <stop offset="42%" stop-color="#BE8637"/>
       <stop offset="100%" stop-color="#6B4412"/>
     </linearGradient>
-    <!-- Dieselbe Gravur einfarbig, für die Leiste: dort soll die Münze
-         nur an der Form zu erkennen sein, nicht an ihrem Gold. -->
-    <g id="muenzform-flach">
-      <path d="M20 2.6 L37.4 20 L20 37.4 L2.6 20 Z
-               M20 14.3 A5.7 5.7 0 1 0 20 25.7 A5.7 5.7 0 1 0 20 14.3 Z"
-            fill-rule="evenodd" fill="currentColor"/>
-      <path d="M20 6.2 L33.8 20 L20 33.8 L6.2 20 Z" fill="none"
-            stroke="currentColor" stroke-width="1.6" opacity=".45"/>
-    </g>
     <g id="muenzform">
       <path d="M20 2.6 L37.4 20 L20 37.4 L2.6 20 Z
                M20 14.3 A5.7 5.7 0 1 0 20 25.7 A5.7 5.7 0 1 0 20 14.3 Z"
@@ -50,7 +41,7 @@
   <header>
     <div class="kopftitel" id="kopftitel">To Bo</div>
     <div class="headright">
-      <button class="beutel" id="beutel" aria-label="Zaubermünzen">
+      <button class="beutel" id="beutel" aria-label="Zaubermünzen — zu den Belohnungen">
         <svg class="muenze" viewBox="0 0 40 40" aria-hidden="true"><use href="#muenzform"/></svg>
         <span class="anzahl" id="muenzzahl">0</span>
       </button>
@@ -67,10 +58,6 @@
     <button class="tab" data-screen="ziele"><span class="ic">✦</span>ZIELE</button>
     <button class="tab" data-screen="skills"><span class="ic">▤</span>SKILLS</button>
     <button class="tab" data-screen="todo"><span class="ic">✔</span>TO DO</button>
-    <button class="tab nurzeichen" data-screen="pflichten" aria-label="Verantwortung"><span class="ic">⚖</span></button>
-    <button class="tab nurzeichen" data-screen="belohnungen" aria-label="Belohnungen">
-      <svg class="ic muenzic" viewBox="0 0 40 40" aria-hidden="true"><use href="#muenzform-flach"/></svg>
-    </button>
   </nav>
 </div>
 

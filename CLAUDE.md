@@ -54,7 +54,12 @@ Benachrichtigungen und wertet nichts aus — sie zählt nur, was getan ist.
 - **Skills sind nicht Ziele mit Extra.** Ein Ziel hat *eine* Liste, ein
   Skill *mehrere benannte*. Deshalb zwei Bestände und zwei Fenster.
 - **Was getilgt ist, bleibt getilgt.** Erreichte Ziele fallen nach
-  `HALTEFRIST_TAGE`, vergangene Wochen mit dem Wochenwechsel. Ihre
-  Kennungen landen in `DATA.getilgt`, und `mergeVault` überspringt sie —
-  ohne das wäre „gelöscht" nur eine Frage der Zeit bis zur nächsten
-  Wiederherstellung.
+  `HALTEFRIST_TAGE`; ihre Kennungen landen in `DATA.getilgt`, und
+  `mergeVault` überspringt sie — ohne das wäre „gelöscht" nur eine Frage
+  der Zeit bis zur nächsten Wiederherstellung. Vergangene Wochen im To-Do
+  bleiben dagegen stehen: man will zurückblättern können.
+- **Nicht alles hängt in der Leiste.** Verantwortung erreicht man über den
+  Knopf oben auf der Habit-Seite, den Belohnungsladen über den Münzbeutel.
+  Solche Nebenbereiche merken sich in `state.zurueck`, von wo aus sie
+  geöffnet wurden, und tragen oben einen Rückweg — ohne den käme man nur
+  über einen Umweg wieder heraus.

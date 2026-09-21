@@ -23,28 +23,38 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
 
   await p.check('App startet ohne Fehler', () => { if (errors.length) throw new Error(errors[0]); });
 
-  await p.check('Sieben Bereiche in der Fußzeile', () => {
+  await p.check('Fünf Bereiche in der Fußzeile', () => {
     const namen = $$('#nav .tab').map(t => t.dataset.screen);
-    const soll = ['vorsaetze','habits','ziele','skills','todo','pflichten','belohnungen'];
+    const soll = ['vorsaetze','habits','ziele','skills','todo'];
     if (namen.join(',') !== soll.join(',')) throw new Error(namen.join(','));
-    return namen.length + ' Bereiche';
+    return namen.join(' · ');
   });
 
-  await p.check('Pflicht und Lohn tragen nur ihr Zeichen', () => {
-    const stumm = $$('#nav .tab.nurzeichen');
-    if (stumm.length !== 2) throw new Error('nur zeichen: ' + stumm.length);
-    stumm.forEach(t => {
-      // Das Zeichen selbst ist Text; verschwinden soll die Beschriftung
-      // daneben — also darf neben dem Zeichen kein Textknoten stehen.
-      const daneben = [...t.childNodes]
-        .filter(k => k.nodeType === 3 && k.textContent.trim())
-        .map(k => k.textContent.trim());
-      if (daneben.length) throw new Error('Beschriftung geblieben: ' + daneben.join(''));
-      if (!t.getAttribute('aria-label')) throw new Error('Ohne Beschriftung für Hilfsmittel');
-    });
-    const beschriftet = $$('#nav .tab:not(.nurzeichen)').map(t => t.textContent.trim());
-    if (beschriftet.length !== 5) throw new Error('beschriftet: ' + beschriftet.length);
-    return beschriftet.join(' ');
+  await p.check('Der Belohnungsladen hängt am Münzbeutel', async () => {
+    click(tab('todo'));
+    await wait(20);
+    click($('#beutel'));
+    await wait(25);
+    if (T.state.screen !== 'belohnungen') throw new Error('Bildschirm: ' + T.state.screen);
+    if (!$('#zurueck')) throw new Error('Kein Rückweg');
+    click($('#zurueck'));
+    await wait(20);
+    if (T.state.screen !== 'todo') throw new Error('nicht zurück: ' + T.state.screen);
+    return 'Beutel → Belohnungen → zurück';
+  });
+
+  await p.check('Verantwortung hängt am Knopf über den Habits', async () => {
+    click(tab('habits'));
+    await wait(20);
+    const knopf = $('#pflichtknopf');
+    if (!knopf) throw new Error('Kein Knopf auf der Habit-Seite');
+    click(knopf);
+    await wait(25);
+    if (T.state.screen !== 'pflichten') throw new Error('Bildschirm: ' + T.state.screen);
+    click($('#zurueck'));
+    await wait(20);
+    if (T.state.screen !== 'habits') throw new Error('nicht zurück: ' + T.state.screen);
+    return 'Habits → Verantwortung → zurück';
   });
 
   await p.check('Der Münzstand steht oben rechts', () => {
@@ -151,21 +161,12 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
          + speichen.length + ' Speichen, alle Linien ≥ 1';
   });
 
-  await p.check('Die Münze ist überall dieselbe Gravur', () => {
+  await p.check('Die Münze steht als eine Gravur im Dokument', () => {
     const stempel = $('#muenzstempel #muenzform');
     if (!stempel) throw new Error('Keine Gravur im Dokument');
     const kopf = $('#beutel .muenze use');
     if (!kopf || kopf.getAttribute('href') !== '#muenzform') throw new Error('Kopfzeile zeigt etwas anderes');
-    const leiste = $('#nav .muenzic use');
-    if (!leiste || leiste.getAttribute('href') !== '#muenzform-flach')
-      throw new Error('Leiste zeigt etwas anderes: ' + (leiste && leiste.getAttribute('href')));
-    // Beide Stempel tragen dieselbe Umrisslinie — nur die Füllung trennt sie.
-    const umriss = e => e.querySelector('path').getAttribute('d').replace(/\s+/g, ' ').trim();
-    if (umriss($('#muenzform')) !== umriss($('#muenzform-flach')))
-      throw new Error('Die beiden Münzen haben verschiedene Formen');
-    if ($('#muenzform-flach path').getAttribute('fill') !== 'currentColor')
-      throw new Error('Die Münze der Leiste ist nicht eingefärbt');
-    return 'gleiche Form, eigene Farbe in der Leiste';
+    return 'Kopfzeile verweist darauf';
   });
 
   /* --- Habits --- */
@@ -529,7 +530,9 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
   /* --- Verantwortung --- */
 
   await p.check('Bereich anlegen und Notiz schreiben', async () => {
-    click(tab('pflichten'));
+    click(tab('habits'));
+    await wait(20);
+    click($('#pflichtknopf'));
     setPrompts(['Wohnung']);
     click($('#neuepflicht'));
     await wait(30);
@@ -551,7 +554,7 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
   /* --- Belohnungen --- */
 
   await p.check('Belohnung anlegen', async () => {
-    click(tab('belohnungen'));
+    click($('#beutel'));
     setPrompts(['Kinoabend']);
     click($('#neuebelohnung'));
     await wait(40);
@@ -560,14 +563,18 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     preis.value = '4'; await preis.onchange();
     await wait(30);
     if (T.DATA.belohnungen[0].preis !== 4) throw new Error('Preis: ' + T.DATA.belohnungen[0].preis);
-    return '4 Münzen';
+    click($('#modalblatt .schliessen'));
+    await wait(20);
+    // Auch am Preis hängt dieselbe Gravur wie oben in der Kopfzeile.
+    const muenzen = $$('.preis .muenze use');
+    if (!muenzen.length) throw new Error('Keine Münze am Preis');
+    if (muenzen.some(u => u.getAttribute('href') !== '#muenzform'))
+      throw new Error('Ein Preis zeigt eine andere Münze');
+    return '4 Münzen, gleiche Gravur';
   });
 
   await p.check('Zu teuer lässt sich nicht einlösen', async () => {
     T.DATA.belohnungen[0].preis = 9999;
-    T.state.offen = { art:'belohnung', id:T.DATA.belohnungen[0].id };
-    click($('#modalblatt .schliessen'));
-    await wait(20);
     click($('.kachel'));
     await wait(25);
     const btn = $('#einloesen');
@@ -643,31 +650,39 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     return 'Frist eingehalten';
   });
 
-  await p.check('Vergangene Wochen fallen weg', () => {
+  await p.check('Vergangene Wochen bleiben stehen', () => {
     const alt = '2026-01-05';
     T.DATA.todo.tage[alt] = [{ id:'altp', text:'vorbei', erledigt:false, lohn:1 }];
-    const bericht = T.abgelaufenesRaeumen();
-    if (!bericht || !bericht.tage) throw new Error('nicht geräumt');
-    if (T.DATA.todo.tage[alt]) throw new Error('alter Tag steht noch');
-    if (!T.DATA.getilgt.includes('altp')) throw new Error('kein Grabstein');
-    return 'Woche geräumt';
-  });
-
-  await p.check('Diese Woche bleibt unangetastet', () => {
-    const heute = T.alsSchluessel(new Date());
-    const vorher = (T.DATA.todo.tage[heute] || []).length;
     T.abgelaufenesRaeumen();
-    if ((T.DATA.todo.tage[heute] || []).length !== vorher) throw new Error('laufende Woche geräumt');
-    return 'unberührt';
+    if (!T.DATA.todo.tage[alt]) throw new Error('alte Woche wurde geräumt');
+    if (T.DATA.getilgt.includes('altp')) throw new Error('alte Woche wurde vermerkt');
+    return 'zum Zurückblättern da';
   });
 
-  await p.check('Ein Backup bringt Getilgtes nicht zurück', () => {
+  await p.check('Zurückblättern zeigt sie auch', async () => {
+    click(tab('todo'));
+    await wait(25);
+    const spanne = $('#wochenspanne').textContent;
+    click($('#wochezurueck'));
+    await wait(25);
+    if ($('#wochenspanne').textContent === spanne) throw new Error('Spanne unverändert');
+    click($('#wochevor'));
+    await wait(25);
+    return 'blättert';
+  });
+
+  await p.check('Ein Backup bringt ein getilgtes Ziel nicht zurück', () => {
     const vorher = T.DATA.ziele.length;
-    T.mergeVault({ ziele: [{ id:'zx', name:'Wieder da?', text:'', schritte:[] }],
-                   todo: { tage: { '2026-01-05': [{ id:'altp', text:'vorbei' }] }, monate:{} } });
+    T.mergeVault({ ziele: [{ id:'zx', name:'Wieder da?', text:'', schritte:[] }] });
     if (T.DATA.ziele.length !== vorher) throw new Error('getilgtes Ziel kam zurück');
-    if (T.DATA.todo.tage['2026-01-05']) throw new Error('getilgte Woche kam zurück');
-    return 'Grabsteine halten';
+    return 'Grabstein hält';
+  });
+
+  await p.check('Eine alte Woche kommt aus dem Backup zurück', () => {
+    delete T.DATA.todo.tage['2026-02-02'];
+    T.mergeVault({ todo: { tage: { '2026-02-02': [{ id:'altbackup', text:'von früher' }] }, monate:{} } });
+    if (!T.DATA.todo.tage['2026-02-02']) throw new Error('alte Woche wurde übersprungen');
+    return 'ergänzt';
   });
 
   /* --- Bestand --- */
