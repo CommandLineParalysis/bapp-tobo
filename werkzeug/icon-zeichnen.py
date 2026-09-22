@@ -28,13 +28,12 @@ def misch(a, b, t):
 
 PERGAMENT      = misch(WEISS, ORANGE, .34)    # helle Seite
 PERGAMENT_TIEF = misch(WEISS, ORANGE, .52)    # Schattenseite am Falz
-EINBAND        = misch(TRAEGER, PINK, .46)    # dunkelroter Deckel
-EINBAND_HELL   = misch(TRAEGER, PINK, .62)
 GOLD           = ORANGE
-BAND           = misch(TRAEGER, PINK, .78)    # Lesebändchen
-# Petrol statt Violett: dunkles Teal, gestaffelt vom Grund bis zur Tinte
-PETROL         = misch(TRAEGER, TEAL, .26)    # Grundfläche des Icons
-PETROL_TIEF    = misch(TRAEGER, TEAL, .10)    # Trägerplatte darunter
+BAND           = misch(TRAEGER, PINK, .78)    # Lesebändchen, der warme Akzent
+# Petrol: dunkles Teal, gestaffelt. Der Grund bleibt das Violett der
+# Familie; petrol ist das Buch — Einband, Rücken und Tinte.
+EINBAND        = misch(TRAEGER, TEAL, .40)    # Deckel und Rücken
+EINBAND_HELL   = misch(TRAEGER, TEAL, .56)    # Schnittkante des Buchblocks
 TINTE          = misch(TRAEGER, TEAL, .20)    # Schrift und Siegel
 
 S, SS = 1024, 4
@@ -47,7 +46,7 @@ def zeichne(groesse, hintergrund, mit_traeger):
 
     if mit_traeger:
         r = 96 * m
-        d.rounded_rectangle([r, r, g - r, g - r], radius=64 * m, fill=PETROL_TIEF)
+        d.rounded_rectangle([r, r, g - r, g - r], radius=64 * m, fill=TRAEGER)
 
     mitte = g * 0.5
     # --- Der Einband, leicht größer als die Seiten ---
@@ -90,20 +89,31 @@ def zeichne(groesse, hintergrund, mit_traeger):
                (mitte + 9*m, unten_innen), (mitte - 9*m, unten_innen)],
               fill=PERGAMENT_TIEF)
 
-    # --- Linke Seite: Schriftzeilen, genau zwischen den Goldrahmen ---
-    zeile_x0 = links + rand + 74*m
-    zeile_x1 = mitte - 74*m
-    oben_feld = oben_aussen + 78*m
-    unten_feld = unten_aussen - 78*m
+    # --- Linke Seite: Schriftzeilen ---
+    # Die Seite kippt nach außen. Waagrechte Zeilen sahen darauf
+    # aufgeklebt aus; sie laufen deshalb parallel zu Ober- und
+    # Unterkante der Seite.
+    seite_links = -1
+    aussen_l = mitte + seite_links * (mitte - links - rand)
+    innen_l = mitte + seite_links * 8 * m
+    neigung = (oben_aussen - oben_innen) / (aussen_l - innen_l)
+
+    def hoehe_bei(x, anteil):
+        """y auf der Seite: anteil 0 ist die Ober-, 1 die Unterkante."""
+        oben = oben_innen + neigung * (x - innen_l)
+        unten = unten_innen + neigung * (x - innen_l)
+        return oben + (unten - oben) * anteil
+
+    x_aussen = aussen_l + 74 * m
+    x_innen = innen_l - 74 * m
     zeilen = 6
-    abstand = (unten_feld - oben_feld) / (zeilen - 1)
+    dicke = 15 * m
     for i in range(zeilen):
-        y = oben_feld + i * abstand
-        kurz = (78*m if i % 3 == 2 else 0)
-        # Die Seite kippt nach außen: jede Zeile folgt der Neigung.
-        versatz = (oben_innen - oben_aussen) * (1 - i / (zeilen - 1)) * 0.5
-        d.rounded_rectangle([zeile_x0, y + versatz, zeile_x1 - kurz, y + versatz + 15*m],
-                            radius=8*m, fill=TINTE)
+        anteil = 0.19 + i * (0.62 / (zeilen - 1))
+        kurz = (86 * m if i % 3 == 2 else 0)
+        xa, xi = x_aussen, x_innen - kurz
+        ya, yi = hoehe_bei(xa, anteil), hoehe_bei(xi, anteil)
+        d.polygon([(xa, ya), (xi, yi), (xi, yi + dicke), (xa, ya + dicke)], fill=TINTE)
 
     # --- Rechte Seite: das Siegel ---
     zx, zy, zr = mitte + (rechts - mitte) * 0.50, (oben_innen + unten_innen) / 2 - 6*m, g*0.115
@@ -126,7 +136,7 @@ def zeichne(groesse, hintergrund, mit_traeger):
 
     return bild.resize((groesse, groesse), Image.LANCZOS)
 
-zeichne(1024, PETROL + (255,), True).convert('RGB').save('resources/icon.png')
+zeichne(1024, GRUND + (255,), True).convert('RGB').save('resources/icon.png')
 
 # Das Adaptive Icon wird von Android beschnitten: sichtbar sind nur die
 # inneren 72 von 108 Einheiten, verlässlich sogar nur 66. Das Motiv wird
@@ -138,8 +148,8 @@ vordergrund = Image.new('RGBA', (1024, 1024), (0, 0, 0, 0))
 versatz = (1024 - klein.width) // 2
 vordergrund.alpha_composite(klein, (versatz, versatz))
 vordergrund.save('resources/icon-foreground.png')
-Image.new('RGB', (1024, 1024), PETROL).save('resources/icon-background.png')
-sp = Image.new('RGBA', (2732, 2732), PETROL + (255,))
+Image.new('RGB', (1024, 1024), GRUND).save('resources/icon-background.png')
+sp = Image.new('RGBA', (2732, 2732), GRUND + (255,))
 k = voll.resize((900, 900), Image.LANCZOS)
 sp.alpha_composite(k, ((2732-900)//2, (2732-900)//2))
 sp.convert('RGB').save('resources/splash.png')
