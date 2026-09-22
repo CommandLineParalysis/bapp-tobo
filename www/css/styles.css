@@ -69,6 +69,13 @@ html,body{
   overscroll-behavior:none;
 }
 
+/* Die Tokens aus dem Scaffold polstern :root mit den Safe-Area-
+   Einzügen. Kopf- und Fußzeile tragen den Einzug hier aber selbst,
+   damit ihre Flächen bis an den Bildschirmrand reichen. Sonst zählt
+   er doppelt: der Kopf rutscht zu tief, unter dem Fuß bleibt ein
+   Streifen Pergament stehen. */
+:root{padding-top:0;padding-bottom:0}
+
 /* Die Maserung des Grundes: ein paar sehr blasse Schatten, damit das
    Papier nicht ganz tot wirkt. Aufgehellt wird nichts — Pergament
    glänzt nicht. */
@@ -88,7 +95,7 @@ body::before{
 
 header{
   display:flex;align-items:center;justify-content:space-between;gap:9px;
-  padding:calc(9px + env(safe-area-inset-top,0px)) 13px 8px;
+  padding:calc(5px + env(safe-area-inset-top,0px)) 13px 6px;
   border-bottom:2px solid var(--rahmen);
   background:var(--blatt);
   box-shadow:0 2px 0 var(--beschlag), 0 6px 14px var(--schlagschatten);
@@ -418,7 +425,7 @@ main{flex:1;overflow-y:auto;padding:0 12px 18px;-webkit-overflow-scrolling:touch
 
 nav{
   display:flex;gap:2px;justify-content:center;
-  padding:4px 4px calc(5px + env(safe-area-inset-bottom,0px));
+  padding:3px 4px calc(3px + env(safe-area-inset-bottom,0px));
   border-top:2px solid var(--rahmen);
   background:var(--blatt);
   box-shadow:0 -2px 0 var(--beschlag);
@@ -464,9 +471,11 @@ nav{
 .brett:last-child .brettkante{margin-bottom:2px}
 
 .buch{
-  position:relative;flex:none;cursor:pointer;padding:5px 2px 6px;
+  /* Höchstens so breit, dass ein Rücken bei wenigen Büchern nicht zur
+     Platte wird — die Breite kommt sonst als flex-Angabe aus dem JS. */
+  position:relative;max-width:64px;cursor:pointer;padding:5px 2px 6px;
   border:none;border-radius:1px 1px 0 0;transform-origin:bottom center;
-  background:linear-gradient(90deg, rgba(0,0,0,.34), var(--ruecken) 26%, var(--ruecken) 74%, rgba(0,0,0,.3));
+  background:var(--ruecken);
   color:var(--praegung);
   display:flex;flex-direction:column;align-items:center;justify-content:space-between;
   box-shadow:0 2px 5px rgba(0,0,0,.45);
@@ -497,7 +506,45 @@ nav{
 .listenkopf{display:flex;align-items:center;gap:8px;margin:14px 0 0;
   border-top:1px dashed var(--linie);padding-top:9px}
 .listenname{flex:1;text-align:left;background:none;border:none;cursor:pointer;padding:0;
+  min-height:26px;display:flex;align-items:center;
   font-family:'UnifrakturCook',serif;font-size:16px;line-height:1.2;color:var(--petrol)}
+/* Das Kreuz am Listenkopf war ein nackter Knopf in Browsergröße und
+   damit kaum zu treffen. Es bekommt dasselbe Maß wie das am Punkt. */
+.listenkopf .weg{background:none;border:none;cursor:pointer;color:var(--tinte-blass);
+  font-size:16px;line-height:1;width:26px;height:26px;padding:0;flex:none}
+
+/* Drei Ebenen im Skill-Fenster: das große Ziel steht am linken Rand,
+   die Teilziele darunter eingerückt, die Aufgaben noch einmal. Die
+   Linie macht die Zugehörigkeit sichtbar, ohne Kästen zu bauen. */
+.listenkopf.gross .listenname{font-size:18px}
+.listenkopf.klein{margin-top:11px;border-top-style:dotted;padding-top:7px}
+.listenkopf.klein .listenname{font-size:14px;color:var(--tinte)}
+.teilziele{margin-left:11px;padding-left:9px;border-left:2px solid var(--linie)}
+.teilziele .leer{font-size:17px}
+
+/* Die Pfeile, die einen Eintrag in der Reihenfolge verschieben. */
+.ordnung{display:flex;flex-direction:column;gap:0;flex:none}
+.ordnen{
+  /* 26×24 je Pfeil: ein Tippziel, das man mit dem Daumen trifft. Die
+     Fläche ist größer als das Zeichen darin, damit die Zeile nicht
+     unnötig hoch wird. */
+  background:none;border:none;cursor:pointer;color:var(--mittel);
+  font-size:12px;line-height:1;width:26px;height:24px;padding:0;
+}
+.ordnen.aus{opacity:.25;pointer-events:none}
+.ordnen:focus-visible{outline:2px solid var(--petrol);outline-offset:1px}
+
+/* Der Jahrgang der Vorsätze. */
+.jahrzeile{display:flex;align-items:center;gap:9px;margin-top:9px}
+.jahrmarke{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.08em;
+  color:var(--tinte-blass);flex:none}
+.jahrwahl{
+  flex:1;min-height:38px;cursor:pointer;
+  background:var(--blatt);color:var(--tinte);
+  border:2px solid var(--linie);border-radius:0;padding:6px 9px;
+  font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.04em;
+}
+.jahrwahl:focus-visible{outline:2px solid var(--petrol);outline-offset:2px}
 
 /* Der Pfeil, der ein To-do auf den nächsten Tag schiebt. */
 .punkt .schieben{

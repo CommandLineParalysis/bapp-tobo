@@ -14,7 +14,8 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
   const T = bruecke(['DATA','state','adoptVault','mergeVault','alsSchluessel','wochenstart',
                      'tageDerWoche','zeitraumSchluessel','standImZeitraum','muenzen',
                      'habitVerlauf','habitBeginn','monatsSchluessel','zielStandPflegen',
-                     'abgelaufenesRaeumen','HALTEFRIST_TAGE','buchZuschnitt','render']);
+                     'abgelaufenesRaeumen','HALTEFRIST_TAGE','buchZuschnitt','render',
+                     'vorsatzJahr','verschieben','skillAufgaben']);
 
   const tab = name => $$('#nav .tab').find(t => t.dataset.screen === name);
   const muenzstand = () => Number($('#muenzzahl').textContent);
@@ -71,7 +72,7 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     setPrompts(['Gesundheit']);
     click($('#neuerbereich'));
     await wait(30);
-    if (T.DATA.vorsaetze.bereiche.length !== 1) throw new Error('nicht angelegt');
+    if (T.vorsatzJahr().length !== 1) throw new Error('nicht angelegt');
     const knoten = $$('.knoten:not(.mitte)');
     if (knoten.length !== 1) throw new Error('Knoten: ' + knoten.length);
     if (!$('.knoten.mitte')) throw new Error('Kein Jahr in der Mitte');
@@ -106,7 +107,7 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     click($('#modalblatt .haken'));
     await wait(30);
     if (muenzstand() !== vorher + 1) throw new Error('Münzen: ' + muenzstand());
-    if (!T.DATA.vorsaetze.bereiche[0].punkte[0].erledigt) throw new Error('nicht abgehakt');
+    if (!T.vorsatzJahr()[0].punkte[0].erledigt) throw new Error('nicht abgehakt');
     return vorher + ' → ' + muenzstand();
   });
 
@@ -135,7 +136,7 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     await wait(30);
     // Der Punkt war abgehakt: die Differenz wird nachgezahlt.
     if (muenzstand() !== vorher + 4) throw new Error('Münzen: ' + muenzstand());
-    if (T.DATA.vorsaetze.bereiche[0].punkte[0].lohn !== 5) throw new Error('Lohn nicht gesetzt');
+    if (T.vorsatzJahr()[0].punkte[0].lohn !== 5) throw new Error('Lohn nicht gesetzt');
     click($('#modalblatt .haken')); await wait(20);
     if (muenzstand() !== vorher - 1) throw new Error('Rücknahme zahlt den falschen Betrag');
     click($('#modalblatt .schliessen'));
@@ -151,7 +152,7 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     const zeichen = svg.querySelectorAll('text');
     if (zeichen.length < 8) throw new Error('Zeichenkranz: ' + zeichen.length);
     const speichen = svg.querySelectorAll('.speiche');
-    if (speichen.length !== T.DATA.vorsaetze.bereiche.length)
+    if (speichen.length !== T.vorsatzJahr().length)
       throw new Error('Speichen: ' + speichen.length);
     if (!svg.querySelector('.stern')) throw new Error('Pentagramm ohne Farbklasse');
     const duenn = [...svg.querySelectorAll('circle,.speiche,.stern')]
@@ -159,6 +160,41 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     if (duenn.length) throw new Error(duenn.length + ' Linien dünner als 1');
     return svg.querySelectorAll('circle').length + ' Ringe, ' + zeichen.length + ' Zeichen, '
          + speichen.length + ' Speichen, alle Linien ≥ 1';
+  });
+
+  await p.check('Der Jahrgang lässt sich aufklappen und wechseln', async () => {
+    const wahl = $('#jahrwahl');
+    if (!wahl) throw new Error('Kein Aufklappmenü');
+    if (wahl.tagName !== 'SELECT') throw new Error('kein echtes Menü: ' + wahl.tagName);
+    const jetzt = T.DATA.vorsaetze.jahr;
+    const bisher = T.vorsatzJahr().length;
+    if (!bisher) throw new Error('Testaufbau: keine Bereiche im laufenden Jahr');
+
+    // Ein neues Jahr über den letzten Eintrag anlegen …
+    setPrompts([String(jetzt + 1)]);
+    wahl.value = 'neu'; await wahl.onchange();
+    await wait(30);
+    if (T.DATA.vorsaetze.jahr !== jetzt + 1) throw new Error('Jahr: ' + T.DATA.vorsaetze.jahr);
+    if (T.vorsatzJahr().length !== 0) throw new Error('Der neue Jahrgang ist nicht leer');
+    if ($$('.knoten:not(.mitte)').length !== 0) throw new Error('Knoten aus dem alten Jahr');
+    if ($('.knoten.mitte .name').textContent !== String(jetzt + 1)) throw new Error('Mitte zeigt das alte Jahr');
+
+    // … und zurückwechseln, ohne dass dort etwas fehlt.
+    const zurueck = $('#jahrwahl');
+    if ([...zurueck.options].length !== 3) throw new Error('Jahre im Menü: ' + zurueck.options.length);
+    zurueck.value = String(jetzt); await zurueck.onchange();
+    await wait(30);
+    if (T.vorsatzJahr().length !== bisher) throw new Error('Bereiche verloren: ' + T.vorsatzJahr().length);
+    return jetzt + ' ⇄ ' + (jetzt + 1) + ', je eigene Bereiche';
+  });
+
+  await p.check('Alte Bestände ohne Jahrgänge wandern in ihr Jahr', () => {
+    const v = T.adoptVault({ vorsaetze: { jahr: 2024,
+      bereiche: [{ id:'b9', name:'Alt', punkte:[{ id:'p9', text:'x' }] }] } });
+    if (!v.vorsaetze.jahre['2024']) throw new Error('Jahrgang 2024 fehlt');
+    if (v.vorsaetze.jahre['2024'][0].name !== 'Alt') throw new Error('Bereich verloren');
+    if (v.vorsaetze.bereiche) throw new Error('alte Form blieb stehen');
+    return 'flacher Bestand → Jahrgang 2024';
   });
 
   await p.check('Die Münze steht als eine Gravur im Dokument', () => {
@@ -432,38 +468,102 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     return zeichen.length + ' Zeichen, ' + new Set(formen).size + ' verschiedene';
   });
 
-  await p.check('Ein Skill trägt mehrere Listen', async () => {
+  await p.check('Ein Skill trägt mehrere große Ziele', async () => {
     click($('[data-skill]'));
     await wait(25);
     const k = T.DATA.skills.find(x => x.id === $('[data-skill]').dataset.skill);
-    if (k.listen.length !== 1) throw new Error('Listen: ' + k.listen.length);
+    if (k.listen.length !== 1) throw new Error('Große Ziele: ' + k.listen.length);
     setPrompts(['Technik']);
-    click($$('#modalblatt .knopf').find(b => b.textContent === '+ LISTE'));
+    click($$('#modalblatt .knopf').find(b => b.textContent === '+ GROSSES ZIEL'));
     await wait(30);
-    if (k.listen.length !== 2) throw new Error('zweite Liste fehlt');
-    if ($$('#modalblatt .listenkopf').length !== 2) throw new Error('nur eine Liste gezeigt');
-    return '2 Listen';
+    if (k.listen.length !== 2) throw new Error('zweites Ziel fehlt');
+    if ($$('#modalblatt .listenkopf.gross').length !== 2) throw new Error('nur eines gezeigt');
+    return '2 große Ziele';
   });
 
-  await p.check('Jede Liste hat eigene Schritte und zahlt eigene Münzen', async () => {
+  await p.check('Unter dem großen Ziel stehen Teilziele, darunter erst Aufgaben', async () => {
     const k = T.DATA.skills[0];
-    const knoepfe = $$('#modalblatt .knopf').filter(b => b.textContent === '+ SCHRITT');
-    if (knoepfe.length !== 2) throw new Error('Schritt-Knöpfe: ' + knoepfe.length);
-    setPrompts(['Lasur üben']);
-    click(knoepfe[0]);
+    // Erst ein Teilziel je großem Ziel …
+    for (const [i, name] of [[0,'Lasur'],[1,'Pinsel']]){
+      setPrompts([name]);
+      click($$('#modalblatt .knopf').filter(b => b.textContent === '+ TEILZIEL')[i]);
+      await wait(30);
+    }
+    if (k.listen[0].teilziele.length !== 1 || k.listen[1].teilziele.length !== 1)
+      throw new Error('Teilziele landeten am selben Ziel');
+    // … und darunter die Aufgaben.
+    const aufgabeKnoepfe = $$('#modalblatt .knopf').filter(b => b.textContent === '+ AUFGABE');
+    if (aufgabeKnoepfe.length !== 2) throw new Error('Aufgaben-Knöpfe: ' + aufgabeKnoepfe.length);
+    setPrompts(['Nass in nass üben']);
+    click(aufgabeKnoepfe[0]);
     await wait(30);
-    setPrompts(['Pinsel pflegen']);
-    click($$('#modalblatt .knopf').filter(b => b.textContent === '+ SCHRITT')[1]);
-    await wait(30);
-    if (k.listen[0].punkte.length !== 1 || k.listen[1].punkte.length !== 1)
-      throw new Error('Schritte landeten in derselben Liste');
+    if (k.listen[0].teilziele[0].punkte.length !== 1) throw new Error('Aufgabe fehlt');
+    if (k.listen[1].teilziele[0].punkte.length !== 0) throw new Error('Aufgabe im falschen Ziel');
+    // Die Aufgabe hängt unter dem Teilziel, nicht direkt am großen Ziel.
+    if (!$('#modalblatt .teilziele .punkt')) throw new Error('Aufgabe steht nicht unter dem Teilziel');
+    return '3 Ebenen: Ziel → Teilziel → Aufgabe';
+  });
+
+  await p.check('Abhaken wirkt sofort im offenen Fenster', async () => {
     const vorher = muenzstand();
-    click($('#modalblatt .haken'));
+    const kaestchen = $('#modalblatt .teilziele .haken');
+    if (kaestchen.classList.contains('an')) throw new Error('schon abgehakt');
+    click(kaestchen);
     await wait(30);
+    // Ohne das Fenster zu schließen: Haken sichtbar, Münze gezählt.
+    if ($('#modalblatt')?.hidden === true) throw new Error('Fenster schloss sich');
+    const jetzt = $('#modalblatt .teilziele .haken');
+    if (!jetzt.classList.contains('an')) throw new Error('Kästchen blieb leer');
+    if (jetzt.textContent !== '✓') throw new Error('kein Haken zu sehen');
     if (muenzstand() !== vorher + 1) throw new Error('Münzen: ' + muenzstand());
+    return 'Haken und Münze ohne Schließen';
+  });
+
+  await p.check('Große Ziele und Teilziele lassen sich umordnen', async () => {
+    const k = T.DATA.skills[0];
+    const namen = () => k.listen.map(l => l.name).join(',');
+    const vorher = namen();
+    const runter = $$('#modalblatt .listenkopf.gross .ordnen')
+      .filter(b => b.getAttribute('aria-label') === 'Nach unten');
+    click(runter[0]);
+    await wait(30);
+    if (namen() === vorher) throw new Error('nichts verschoben');
+    if (namen() !== vorher.split(',').reverse().join(',')) throw new Error('falsch verschoben: ' + namen());
+    // Am Rand passiert nichts — der oberste Eintrag springt nicht ans Ende.
+    const hoch = $$('#modalblatt .listenkopf.gross .ordnen')
+      .filter(b => b.getAttribute('aria-label') === 'Nach oben');
+    if (!hoch[0].classList.contains('aus')) throw new Error('oberster Pfeil nicht abgeblendet');
+    if (!T.verschieben(k.listen, k.listen[0], -1)) { /* liefert false — richtig */ }
+    else throw new Error('Umlauf über den Rand');
     click($('#modalblatt .schliessen'));
     await wait(20);
-    return 'getrennt, 1 Münze';
+    return vorher + ' → ' + namen();
+  });
+
+  await p.check('Die Bretter werden nach Breite gefüllt, nicht nach Stückzahl', async () => {
+    for (const name of ['Töpfern','Klettern','Schach','Nähen','Kochen','Segeln','Imkern']){
+      setPrompts([name]);
+      click($('#neuerskill'));
+      await wait(30);
+      click($('#modalblatt .schliessen'));
+      await wait(20);
+    }
+    const bretter = $$('#regal .brett');
+    if (bretter.length < 2) throw new Error('nur ' + bretter.length + ' Brett');
+    const breiteVon = b => Number(/flex:(\d+)/.exec(b.getAttribute('style'))[1]);
+    bretter.forEach((brett, i) => {
+      const buecher = [...brett.querySelectorAll('.buch')];
+      if (!buecher.length) return;                       // das leere Reservebrett
+      const belegt = buecher.reduce((n, b) => n + breiteVon(b) + 3, 0)
+                   + (i === 0 ? 47 : 0);                 // die große Pflanze links oben
+      if (belegt > 268) throw new Error('Brett ' + (i+1) + ' läuft über: ' + belegt + 'px');
+    });
+    // Und es wird wirklich gefüllt: auf keinem Brett außer dem letzten
+    // bliebe Platz für ein weiteres Buch.
+    const alleBuecher = $$('#regal .buch');
+    if (alleBuecher.length !== T.DATA.skills.length)
+      throw new Error('Bücher: ' + alleBuecher.length + ' für ' + T.DATA.skills.length + ' Skills');
+    return bretter.length + ' Bretter für ' + alleBuecher.length + ' Bücher';
   });
 
   /* --- To Do --- */
@@ -641,6 +741,25 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     return stand + ' − ' + preis + ' = ' + muenzstand();
   });
 
+  await p.check('Die Belohnungen stehen nach Preis aufsteigend', async () => {
+    click($('#modalblatt .schliessen'));
+    await wait(20);
+    T.DATA.belohnungen.length = 0;
+    // Bewusst unsortiert eingetragen — die Seite soll das richten.
+    [['Kino',12],['Kuchen',3],['Wochenende',40],['Kaffee',3]].forEach(([name, preis]) => {
+      T.DATA.belohnungen.push({ id:'l_'+name, name, text:'', preis, bild:null });
+    });
+    T.render();
+    await wait(30);
+    const preise = $$('#lohnkacheln .preis .zahl').map(z => Number(z.textContent));
+    if (preise.join(',') !== '3,3,12,40') throw new Error('Reihenfolge: ' + preise.join(','));
+    const namen = $$('#lohnkacheln .kachel h3').map(n => n.textContent);
+    if (namen[0] !== 'Kaffee') throw new Error('gleicher Preis nicht alphabetisch: ' + namen.join(','));
+    // Sortiert wird nur die Anzeige; der Bestand bleibt, wie er steht.
+    if (T.DATA.belohnungen[0].name !== 'Kino') throw new Error('Bestand umgestellt');
+    return namen.join(' < ');
+  });
+
   await p.check('Der Beutel wird nie negativ', async () => {
     T.muenzen(-99999);
     await wait(20);
@@ -745,7 +864,7 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     const v = T.adoptVault(roh);
     if (v.muenzen !== 7) throw new Error('Münzen: ' + v.muenzen);
     if (v.vorsaetze.jahr !== 2031) throw new Error('Jahr: ' + v.vorsaetze.jahr);
-    if (v.vorsaetze.bereiche[0].punkte[0].lohn !== 3) throw new Error('Lohn verloren');
+    if (v.vorsaetze.jahre['2031'][0].punkte[0].lohn !== 3) throw new Error('Lohn verloren');
     if (v.habits[0].zeitraum !== 'woche') throw new Error('Zeitraum verloren');
     if (v.todo.tage['2026-01-01'][0].lohn !== 1) throw new Error('Standardlohn fehlt');
     if (v.modus !== 'dunkel') throw new Error('Modus: ' + v.modus);

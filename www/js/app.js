@@ -17,7 +17,7 @@ const WOCHENTAGE_LANG = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','
 function leererVault(){
   return {
     muenzen: 0,
-    vorsaetze: { jahr: new Date().getFullYear(), bereiche: [] },
+    vorsaetze: { jahr: new Date().getFullYear(), jahre: {} },
     habits: [],
     ziele: [],
     skills: [],
@@ -54,6 +54,23 @@ function vaultPayload(){
 
 function neueId(p){ return p + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7); }
 
+/* Die Vorsätze liegen je Jahr getrennt. Das gewählte Jahr steht in
+   DATA.vorsaetze.jahr, die Lebensbereiche in DATA.vorsaetze.jahre —
+   ein Jahrgang entsteht erst, wenn man ihn zum ersten Mal befüllt. */
+function vorsatzJahr(jahr){
+  const j = String(jahr === undefined ? DATA.vorsaetze.jahr : jahr);
+  if (!DATA.vorsaetze.jahre[j]) DATA.vorsaetze.jahre[j] = [];
+  return DATA.vorsaetze.jahre[j];
+}
+
+/* Alle Jahre, die es gibt — das gewählte ist immer dabei, auch wenn es
+   noch leer ist, sonst fehlte es im Aufklappmenü. */
+function vorsatzJahre(){
+  const jahre = new Set(Object.keys(DATA.vorsaetze.jahre).map(Number).filter(Number.isFinite));
+  jahre.add(DATA.vorsaetze.jahr);
+  return [...jahre].sort((a, b) => b - a);
+}
+
 /* Ein abhakbarer Punkt. Der Lohn steht am Punkt, nicht an einer
    globalen Einstellung: manches ist mehr wert als anderes. */
 function neuerPunkt(text){
@@ -69,18 +86,42 @@ function punkteListe(liste){
   }));
 }
 
+/* Ein Teilziel bündelt Aufgaben. Bestände von vor der dritten Ebene
+   hängten die Aufgaben direkt an das große Ziel; die bekommen ein
+   erstes Teilziel, damit nichts verlorengeht. */
+function teilzielListe(liste){
+  const roh = Array.isArray(liste.teilziele) ? liste.teilziele : null;
+  if (!roh){
+    const alt = punkteListe(liste.punkte);
+    return alt.length ? [{ id: neueId('tz'), name: 'Aufgaben', punkte: alt }] : [];
+  }
+  return roh.map(t => ({
+    id: t.id || neueId('tz'), name: String(t.name || ''), punkte: punkteListe(t.punkte),
+  }));
+}
+
 function adoptVault(saved){
   const v = leererVault();
   if (!saved) return v;
   v.muenzen = Number.isFinite(saved.muenzen) ? saved.muenzen : 0;
 
   const vs = saved.vorsaetze || {};
+  const bereicheListe = l => (Array.isArray(l) ? l : []).map(b => ({
+    id: b.id || neueId('b'), name: String(b.name || ''), punkte: punkteListe(b.punkte),
+  }));
   v.vorsaetze = {
     jahr: Number.isFinite(vs.jahr) ? vs.jahr : new Date().getFullYear(),
-    bereiche: (vs.bereiche || []).map(b => ({
-      id: b.id || neueId('b'), name: String(b.name || ''), punkte: punkteListe(b.punkte),
-    })),
+    jahre: {},
   };
+  Object.entries(vs.jahre || {}).forEach(([j, l]) => {
+    if (Number.isFinite(Number(j))) v.vorsaetze.jahre[j] = bereicheListe(l);
+  });
+  /* Ältere Bestände kannten nur einen Jahrgang und legten ihn flach
+     unter "bereiche" ab. Der wandert in das Jahr, das dabeistand. */
+  if (Array.isArray(vs.bereiche) && vs.bereiche.length){
+    const j = String(v.vorsaetze.jahr);
+    v.vorsaetze.jahre[j] = (v.vorsaetze.jahre[j] || []).concat(bereicheListe(vs.bereiche));
+  }
 
   v.habits = (saved.habits || []).map(h => ({
     id: h.id || neueId('h'),
@@ -99,12 +140,14 @@ function adoptVault(saved){
     fertigSeit: typeof z.fertigSeit === 'string' ? z.fertigSeit : null,
   }));
 
-  /* Ein Skill trägt mehrere Listen, jede mit eigenem Namen — das ist
-     der Unterschied zum Ziel, das genau eine Liste hat. */
+  /* Ein Skill gliedert sich in drei Ebenen: große Ziele, darunter
+     Teilziele, darunter erst die abhakbaren Aufgaben. Das ist der
+     Unterschied zum Ziel, das genau eine Liste von Schritten hat. */
   v.skills = (saved.skills || []).map(k => ({
     id: k.id || neueId('k'), name: String(k.name || ''), text: String(k.text || ''),
     listen: (k.listen || []).map(l => ({
-      id: l.id || neueId('li'), name: String(l.name || ''), punkte: punkteListe(l.punkte),
+      id: l.id || neueId('li'), name: String(l.name || ''),
+      teilziele: teilzielListe(l),
     })),
   }));
 
@@ -217,12 +260,16 @@ function muenzen(n){
   }
 }
 
+/* render() baut nur die Seite hinter dem Fenster neu. Steht ein
+   Fenster offen, muss es mit aufgefrischt werden — sonst bliebe das
+   Kästchen leer, bis man das Fenster schließt. */
 async function punktSchalten(p){
   p.erledigt = !p.erledigt;
   muenzen(p.erledigt ? p.lohn : -p.lohn);
   zielStandPflegen();
   await persist();
   render();
+  if (state.offen) fensterAuffrischen();
 }
 
 /* ---------- Datum ---------- */
@@ -400,6 +447,39 @@ function punkteBlock(liste, beiAenderung, platzhalter, zusatzFuer){
 
 function erledigtVon(liste){ return liste.filter(p => p.erledigt).length; }
 
+/* Alle Aufgaben unter einem großen Ziel bzw. unter einem ganzen Skill —
+   die Zählerei steht an mehreren Stellen und soll überall dieselbe
+   sein. */
+function zielAufgaben(liste){ return liste.teilziele.flatMap(t => t.punkte); }
+function skillAufgaben(k){ return k.listen.flatMap(zielAufgaben); }
+
+/* Ein Eintrag um eine Stelle nach oben oder unten. Am Rand passiert
+   nichts — kein Umlauf, sonst springt der oberste Eintrag ans Ende,
+   wenn man einmal zu oft tippt. */
+function verschieben(liste, objekt, richtung){
+  const i = liste.indexOf(objekt);
+  const ziel = i + richtung;
+  if (i < 0 || ziel < 0 || ziel >= liste.length) return false;
+  liste.splice(ziel, 0, liste.splice(i, 1)[0]);
+  return true;
+}
+
+/* Die beiden Pfeilknöpfe dazu. Am Rand bleiben sie stehen, aber
+   abgeblendet und nicht bedienbar — so springt die Zeile nicht. */
+function ordnungsKnoepfe(liste, objekt, beiAenderung){
+  const i = liste.indexOf(objekt);
+  const pfeil = (richtung, zeichen, was) => h('button', {
+    class:'ordnen' + ((richtung < 0 ? i <= 0 : i >= liste.length - 1) ? ' aus' : ''),
+    text: zeichen, 'aria-label': was,
+    onclick: async () => {
+      if (!verschieben(liste, objekt, richtung)) return;
+      await persist(); beiAenderung();
+    },
+  });
+  return h('span', { class:'ordnung' },
+    pfeil(-1, '\u25B4', 'Nach oben'), pfeil(1, '\u25BE', 'Nach unten'));
+}
+
 function fortschritt(liste){
   const anteil = liste.length ? erledigtVon(liste) / liste.length : 0;
   return h('div', { class:'balken' }, h('i', { style: 'width:' + Math.round(anteil*100) + '%' }));
@@ -492,15 +572,16 @@ async function bilderAufloesen(){
 
 function vorsaetzeSeite(){
   const v = DATA.vorsaetze;
+  const bereiche = vorsatzJahr();
   const wurzel = h('div', {});
 
-  const n = v.bereiche.length;
+  const n = bereiche.length;
   const radius = n > 6 ? 37 : 34;
   const feld = h('div', { class:'kreisfeld', id:'kreisfeld' });
-  feld.appendChild(zirkel(v.bereiche.map((_, i) => winkelFuer(i, n)), radius));
+  feld.appendChild(zirkel(bereiche.map((_, i) => winkelFuer(i, n)), radius));
   emblemZaehler++;
 
-  v.bereiche.forEach((b, i) => {
+  bereiche.forEach((b, i) => {
     const w = winkelFuer(i, n);
     feld.appendChild(h('button', {
       class:'knoten',
@@ -511,8 +592,8 @@ function vorsaetzeSeite(){
       h('span', { class:'stand', text: erledigtVon(b.punkte) + '/' + b.punkte.length })));
   });
 
-  const gesamt = v.bereiche.reduce((s, b) => s + b.punkte.length, 0);
-  const fertig = v.bereiche.reduce((s, b) => s + erledigtVon(b.punkte), 0);
+  const gesamt = bereiche.reduce((s, b) => s + b.punkte.length, 0);
+  const fertig = bereiche.reduce((s, b) => s + erledigtVon(b.punkte), 0);
   feld.appendChild(h('div', { class:'knoten mitte' },
     h('span', { class:'name', text: String(v.jahr) }),
     h('span', { class:'stand', text: gesamt ? fertig + '/' + gesamt : 'leer' })));
@@ -529,21 +610,43 @@ function vorsaetzeSeite(){
     onclick: async () => {
       const name = (prompt('Name des Lebensbereichs:') || '').trim();
       if (!name) return;
-      DATA.vorsaetze.bereiche.push({ id: neueId('b'), name, punkte: [] });
+      vorsatzJahr().push({ id: neueId('b'), name, punkte: [] });
       await persist(); render();
     },
   }));
-  wurzel.appendChild(h('button', {
-    class:'knopf still', id:'jahrbtn', style:'width:100%;margin-top:9px',
-    text:'JAHR: ' + v.jahr,
-    onclick: async () => {
-      const j = parseInt(prompt('Welches Jahr?', v.jahr), 10);
-      if (!Number.isFinite(j)) return;
-      DATA.vorsaetze.jahr = j;
-      await persist(); render();
-    },
-  }));
+  wurzel.appendChild(jahrWaehler());
   return wurzel;
+}
+
+/* Der Jahrgangswechsel: ein echtes Aufklappmenü, kein Knopf, der
+   fragt. Die vorhandenen Jahre stehen darin, der letzte Eintrag legt
+   einen neuen Jahrgang an. Ein <select> ist auf dem Telefon das
+   einzige Element, das sich wie ein Aufklappmenü anfühlt — und es
+   braucht nichts Nachgeladenes. */
+function jahrWaehler(){
+  const wahl = h('select', { class:'jahrwahl', id:'jahrwahl', 'aria-label':'Jahrgang wählen' });
+  vorsatzJahre().forEach(j => {
+    const anzahl = (DATA.vorsaetze.jahre[String(j)] || []).length;
+    wahl.appendChild(h('option', {
+      value: String(j),
+      text: j + (anzahl ? ' · ' + anzahl + ' Bereiche' : ' · leer'),
+    }));
+  });
+  wahl.appendChild(h('option', { value:'neu', text:'+ anderes Jahr …' }));
+  wahl.value = String(DATA.vorsaetze.jahr);
+  wahl.onchange = async () => {
+    if (wahl.value === 'neu'){
+      const j = parseInt(prompt('Welches Jahr?', DATA.vorsaetze.jahr + 1), 10);
+      if (!Number.isFinite(j)){ wahl.value = String(DATA.vorsaetze.jahr); return; }
+      DATA.vorsaetze.jahr = j;
+      vorsatzJahr();                 // legt den Jahrgang an, damit er im Menü bleibt
+    } else {
+      DATA.vorsaetze.jahr = Number(wahl.value);
+    }
+    await persist(); render();
+  };
+  return h('div', { class:'jahrzeile', id:'jahrzeile' },
+    h('span', { class:'jahrmarke', text:'JAHRGANG' }), wahl);
 }
 
 function winkelFuer(i, n){ return (i / Math.max(n, 1)) * Math.PI * 2 - Math.PI / 2; }
@@ -659,6 +762,13 @@ function zieleSeite(){
    und nicht nach Tabelle; Breite und Farbe hängen an der Kennung,
    damit sie beim Neuzeichnen nicht springen. */
 
+/* Brettbreite bei 320px Bildschirm: 320 abzüglich der Polster von
+   main (2×12), Regal (2×2 Rahmen, 2×6), Brett (2×4) und Buchreihe
+   (2×2). Die große Pflanze auf dem obersten Brett belegt davon 47px. */
+const BRETT_BREITE = 268;
+const GROSSE_PFLANZE = 47;
+const BUCH_ABSTAND = 3;
+
 const BUCHFARBEN = [
   ['#7A2E2A','#C8A44A'], ['#1F4F63','#9FD8E2'], ['#3E5D2E','#D2C07A'],
   ['#4A2C5C','#C9A6DE'], ['#8A4B1E','#EBC98A'], ['#23404F','#79C2CF'],
@@ -690,12 +800,22 @@ function skillsSeite(){
   const wurzel = h('div', {});
   const regal = h('div', { class:'regal', id:'regal' });
 
-  // Die Bücher werden auf Bretter verteilt, damit das Regal mitwächst.
-  const proBrett = 5;
+  /* Verteilt wird nach Breite, nicht nach Stückzahl: die Rücken sind
+     verschieden breit, und eine feste Zahl ließ ein Brett mal überlaufen
+     und mal halb leer stehen. Gerechnet wird mit der Brettbreite des
+     schmalsten unterstützten Bildschirms, damit die Aufteilung überall
+     dieselbe ist; in die Breite gezogen werden die Bücher danach vom
+     Umbruch selbst. */
   const bretter = [];
+  let rest = 0;
   DATA.skills.forEach((k, i) => {
-    if (i % proBrett === 0) bretter.push([]);
+    const braucht = buchZuschnitt(k.id).breite + BUCH_ABSTAND;
+    if (i === 0 || braucht > rest){
+      bretter.push([]);
+      rest = BRETT_BREITE - (bretter.length === 1 ? GROSSE_PFLANZE : 0);
+    }
     bretter[bretter.length - 1].push(k);
+    rest -= braucht;
   });
   // Mindestens zwei Bretter: ein einzelnes Brett sieht nach Ablage aus,
   // zwei nach Regal.
@@ -707,11 +827,15 @@ function skillsSeite(){
     if (bi === 0) reihe.appendChild(grossePflanze());
     buecher.forEach(k => {
       const z = buchZuschnitt(k.id);
-      const offen = k.listen.reduce((n, l) => n + l.punkte.length, 0);
-      const fertig = k.listen.reduce((n, l) => n + erledigtVon(l.punkte), 0);
+      const aufgaben = skillAufgaben(k);
+      const offen = aufgaben.length;
+      const fertig = erledigtVon(aufgaben);
       reihe.appendChild(h('button', {
         class:'buch', 'data-skill': k.id,
-        style:'width:' + z.breite + 'px;height:' + z.hoehe + 'px;' +
+        /* flex-basis statt fester Breite: bleibt ein Brett halb leer,
+           ziehen sich die Rücken darauf in die Lücke, statt rechts
+           einen leeren Streifen stehen zu lassen. */
+        style:'flex:' + z.breite + ' 1 ' + z.breite + 'px;height:' + z.hoehe + 'px;' +
               '--ruecken:' + z.farben[0] + ';--praegung:' + z.farben[1] + ';' +
               'transform:rotate(' + z.neigung + 'deg)',
         title: k.name + ' — ' + fertig + '/' + offen,
@@ -734,7 +858,7 @@ function skillsSeite(){
       const name = (prompt('Welcher Skill?') || '').trim();
       if (!name) return;
       const neu = { id: neueId('k'), name, text:'',
-                    listen: [{ id: neueId('li'), name:'Grundlagen', punkte: [] }] };
+                    listen: [{ id: neueId('li'), name:'Grundlagen', teilziele: [] }] };
       DATA.skills.push(neu);
       await persist();
       zeigeFenster({ art:'skill', id:neu.id });
@@ -1137,7 +1261,13 @@ function belohnungenSeite(){
       h('div', { class:'leer', text:'Noch keine Belohnung. Wofür soll sich das Sammeln lohnen?' })));
   } else {
     const gitter = h('div', { class:'kacheln', id:'lohnkacheln' });
-    DATA.belohnungen.forEach(b => {
+    /* Nach Preis aufsteigend: vorne steht, was am ehesten erreichbar
+       ist. Sortiert wird nur für die Anzeige — der Bestand behält
+       seine Reihenfolge, damit Umbenennen und Löschen weiter über die
+       Stelle in DATA.belohnungen gehen. */
+    const nachPreis = DATA.belohnungen.slice().sort((a, b) =>
+      a.preis - b.preis || a.name.localeCompare(b.name, 'de', { numeric: true }));
+    nachPreis.forEach(b => {
       const zuteuer = DATA.muenzen < b.preis;
       const kachel = h('button', {
         class:'kachel' + (zuteuer ? ' zuteuer' : ''),
@@ -1198,7 +1328,7 @@ function fensterKopfAktionen(blatt, objekt, liste, bezeichnung){
 }
 
 function fensterBereich(id){
-  const b = DATA.vorsaetze.bereiche.find(x => x.id === id);
+  const b = vorsatzJahr().find(x => x.id === id);
   if (!b) return fensterSchliessen();
   fensterOeffnen(b.name || 'Lebensbereich', blatt => {
     blatt.appendChild(h('div', { class:'seitenmeta',
@@ -1212,7 +1342,7 @@ function fensterBereich(id){
         b.punkte.push(neuerPunkt(t));
         await persist(); fensterAuffrischen();
       }, 'voll')));
-    fensterKopfAktionen(blatt, b, DATA.vorsaetze.bereiche, 'Lebensbereich');
+    fensterKopfAktionen(blatt, b, vorsatzJahr(), 'Lebensbereich');
   });
 }
 
@@ -1252,45 +1382,84 @@ function fensterSkill(id){
     feld.onchange = () => persist();
     blatt.appendChild(h('div', { class:'feld' }, h('label', { text:'NOTIZ' }), feld));
 
+    /* Drei Ebenen: großes Ziel, darunter Teilziele, darunter erst die
+       abhakbaren Aufgaben. Die Einrückung macht sichtbar, was wozu
+       gehört; die Pfeile daneben ordnen die Ebene, in der sie stehen. */
     k.listen.forEach(liste => {
-      aufraeumen(liste.punkte);
-      const kopf = h('div', { class:'listenkopf' },
+      const aufgaben = zielAufgaben(liste);
+      blatt.appendChild(h('div', { class:'listenkopf gross' },
         h('button', {
           class:'listenname', text: liste.name || 'Ohne Namen',
           onclick: async () => {
-            const neu = (prompt('Liste umbenennen:', liste.name) || '').trim();
+            const neu = (prompt('Großes Ziel umbenennen:', liste.name) || '').trim();
             if (!neu) return;
             liste.name = neu;
             await persist(); fensterAuffrischen();
           },
         }),
-        h('span', { class:'seitenmeta', text: erledigtVon(liste.punkte) + '/' + liste.punkte.length }),
+        h('span', { class:'seitenmeta', text: erledigtVon(aufgaben) + '/' + aufgaben.length }),
+        ordnungsKnoepfe(k.listen, liste, fensterAuffrischen),
         h('button', {
-          class:'weg', text:'×', 'aria-label':'Liste löschen',
+          class:'weg', text:'\u00D7', 'aria-label':'Großes Ziel löschen',
           onclick: async () => {
-            if (!confirm('Liste „' + liste.name + '" mitsamt Punkten löschen?')) return;
-            liste.punkte.filter(pt => pt.erledigt).forEach(pt => muenzen(-pt.lohn));
+            if (!confirm('Großes Ziel „' + liste.name + '" mitsamt Teilzielen löschen?')) return;
+            zielAufgaben(liste).filter(pt => pt.erledigt).forEach(pt => muenzen(-pt.lohn));
             k.listen = k.listen.filter(l => l !== liste);
             await persist(); fensterAuffrischen();
           },
-        }));
-      blatt.appendChild(kopf);
-      blatt.appendChild(fortschritt(liste.punkte));
-      blatt.appendChild(punkteBlock(liste.punkte, fensterAuffrischen, 'Noch nichts in dieser Liste.'));
-      blatt.appendChild(h('div', { class:'reihe' },
-        knopf('+ SCHRITT', async () => {
-          const t = (prompt(liste.name + ' — welcher Schritt?') || '').trim();
-          if (!t) return;
-          liste.punkte.push(neuerPunkt(t));
+        })));
+      blatt.appendChild(fortschritt(aufgaben));
+
+      const stufe = h('div', { class:'teilziele' });
+      if (!liste.teilziele.length){
+        stufe.appendChild(h('div', { class:'leer', text:'Noch kein Teilziel.' }));
+      }
+      liste.teilziele.forEach(tz => {
+        stufe.appendChild(h('div', { class:'listenkopf klein' },
+          h('button', {
+            class:'listenname', text: tz.name || 'Ohne Namen',
+            onclick: async () => {
+              const neu = (prompt('Teilziel umbenennen:', tz.name) || '').trim();
+              if (!neu) return;
+              tz.name = neu;
+              await persist(); fensterAuffrischen();
+            },
+          }),
+          h('span', { class:'seitenmeta', text: erledigtVon(tz.punkte) + '/' + tz.punkte.length }),
+          ordnungsKnoepfe(liste.teilziele, tz, fensterAuffrischen),
+          h('button', {
+            class:'weg', text:'\u00D7', 'aria-label':'Teilziel löschen',
+            onclick: async () => {
+              if (!confirm('Teilziel „' + tz.name + '" mitsamt Aufgaben löschen?')) return;
+              tz.punkte.filter(pt => pt.erledigt).forEach(pt => muenzen(-pt.lohn));
+              liste.teilziele = liste.teilziele.filter(x => x !== tz);
+              await persist(); fensterAuffrischen();
+            },
+          })));
+        stufe.appendChild(punkteBlock(tz.punkte, fensterAuffrischen, 'Noch keine Aufgabe.'));
+        stufe.appendChild(h('div', { class:'reihe' },
+          knopf('+ AUFGABE', async () => {
+            const t = (prompt(tz.name + ' \u2014 welche Aufgabe?') || '').trim();
+            if (!t) return;
+            tz.punkte.push(neuerPunkt(t));
+            await persist(); fensterAuffrischen();
+          })));
+      });
+      stufe.appendChild(h('div', { class:'reihe' },
+        knopf('+ TEILZIEL', async () => {
+          const name = (prompt(liste.name + ' \u2014 wie heißt das Teilziel?') || '').trim();
+          if (!name) return;
+          liste.teilziele.push({ id: neueId('tz'), name, punkte: [] });
           await persist(); fensterAuffrischen();
         })));
+      blatt.appendChild(stufe);
     });
 
     blatt.appendChild(h('div', { class:'reihe' },
-      knopf('+ LISTE', async () => {
-        const name = (prompt('Wie heißt die neue Liste?') || '').trim();
+      knopf('+ GROSSES ZIEL', async () => {
+        const name = (prompt('Wie heißt das große Ziel?') || '').trim();
         if (!name) return;
-        k.listen.push({ id: neueId('li'), name, punkte: [] });
+        k.listen.push({ id: neueId('li'), name, teilziele: [] });
         await persist(); fensterAuffrischen();
       }, 'voll')));
 
@@ -1554,7 +1723,10 @@ function mergeVault(manifest){
       bericht[zaehler]++;
     });
   };
-  dazu(DATA.vorsaetze.bereiche, fremd.vorsaetze.bereiche, 'bereiche');
+  // Vorsätze liegen je Jahrgang getrennt; jeder wird für sich ergänzt.
+  Object.keys(fremd.vorsaetze.jahre).forEach(j => {
+    dazu(vorsatzJahr(j), fremd.vorsaetze.jahre[j], 'bereiche');
+  });
   dazu(DATA.habits, fremd.habits, 'habits');
   dazu(DATA.ziele, fremd.ziele, 'ziele');
   dazu(DATA.skills, fremd.skills, 'skills');
