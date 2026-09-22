@@ -15,7 +15,7 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
                      'tageDerWoche','zeitraumSchluessel','standImZeitraum','muenzen',
                      'habitVerlauf','habitBeginn','monatsSchluessel','zielStandPflegen',
                      'abgelaufenesRaeumen','HALTEFRIST_TAGE','buchZuschnitt','render',
-                     'vorsatzJahr','verschieben','skillAufgaben']);
+                     'vorsatzJahr','verschieben','skillAufgaben','brettBreite']);
 
   const tab = name => $$('#nav .tab').find(t => t.dataset.screen === name);
   const muenzstand = () => Number($('#muenzzahl').textContent);
@@ -540,7 +540,7 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
     return vorher + ' → ' + namen();
   });
 
-  await p.check('Die Bretter werden nach Breite gefüllt, nicht nach Stückzahl', async () => {
+  await p.check('Ein Brett wird voll, bevor das nächste anfängt', async () => {
     for (const name of ['Töpfern','Klettern','Schach','Nähen','Kochen','Segeln','Imkern']){
       setPrompts([name]);
       click($('#neuerskill'));
@@ -548,22 +548,39 @@ const { starteApp, pruefliste } = require('@bappiverse/scaffold/test/harness');
       click($('#modalblatt .schliessen'));
       await wait(20);
     }
-    const bretter = $$('#regal .brett');
-    if (bretter.length < 2) throw new Error('nur ' + bretter.length + ' Brett');
-    const breiteVon = b => Number(/flex:(\d+)/.exec(b.getAttribute('style'))[1]);
-    bretter.forEach((brett, i) => {
+    // Dieselbe Brettbreite, mit der die Seite rechnet — sie hängt am
+    // Bildschirm, und hier soll die Aufteilungsregel geprüft werden,
+    // nicht eine bestimmte Zahl.
+    const PLATZ = T.brettBreite(), PFLANZE = 47, ABSTAND = 3;
+    const breiteVon = b => Number(/width:(\d+)px/.exec(b.getAttribute('style'))[1]);
+    const belegung = [...$$('#regal .brett')].map((brett, i) => {
       const buecher = [...brett.querySelectorAll('.buch')];
-      if (!buecher.length) return;                       // das leere Reservebrett
-      const belegt = buecher.reduce((n, b) => n + breiteVon(b) + 3, 0)
-                   + (i === 0 ? 47 : 0);                 // die große Pflanze links oben
-      if (belegt > 268) throw new Error('Brett ' + (i+1) + ' läuft über: ' + belegt + 'px');
+      return { buecher,
+               belegt: buecher.reduce((n, b) => n + breiteVon(b) + ABSTAND, 0) + (i === 0 ? PFLANZE : 0),
+               platz: PLATZ };
     });
-    // Und es wird wirklich gefüllt: auf keinem Brett außer dem letzten
-    // bliebe Platz für ein weiteres Buch.
-    const alleBuecher = $$('#regal .buch');
-    if (alleBuecher.length !== T.DATA.skills.length)
-      throw new Error('Bücher: ' + alleBuecher.length + ' für ' + T.DATA.skills.length + ' Skills');
-    return bretter.length + ' Bretter für ' + alleBuecher.length + ' Bücher';
+    const bestueckt = belegung.filter(b => b.buecher.length);
+    if (bestueckt.length < 2) throw new Error('nur ' + bestueckt.length + ' bestücktes Brett');
+
+    bestueckt.forEach((b, i) => {
+      if (b.belegt > b.platz) throw new Error('Brett ' + (i+1) + ' läuft über: ' + b.belegt + 'px');
+      // Das entscheidende: das erste Buch des nächsten Bretts hätte
+      // hier nicht mehr hingepasst — sonst wäre zu früh umgebrochen.
+      const naechstes = bestueckt[i + 1];
+      if (!naechstes) return;
+      const braucht = breiteVon(naechstes.buecher[0]) + ABSTAND;
+      if (b.belegt + braucht <= b.platz)
+        throw new Error('Brett ' + (i+1) + ' war erst bei ' + b.belegt + ' von ' + b.platz
+                      + 'px, das nächste Buch (' + braucht + 'px) hätte noch gepasst');
+    });
+
+    // Die Rücken behalten ihre eigene Breite, sie werden nicht gedehnt.
+    const gedehnt = $$('#regal .buch').filter(b => /flex:\s*\d/.test(b.getAttribute('style')));
+    if (gedehnt.length) throw new Error(gedehnt.length + ' Rücken werden in die Breite gezogen');
+
+    if ($$('#regal .buch').length !== T.DATA.skills.length)
+      throw new Error('Bücher: ' + $$('#regal .buch').length + ' für ' + T.DATA.skills.length + ' Skills');
+    return bestueckt.map(b => b.buecher.length + ' (' + b.belegt + '/' + b.platz + 'px)').join(', ');
   });
 
   /* --- To Do --- */

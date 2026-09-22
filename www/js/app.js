@@ -626,11 +626,7 @@ function vorsaetzeSeite(){
 function jahrWaehler(){
   const wahl = h('select', { class:'jahrwahl', id:'jahrwahl', 'aria-label':'Jahrgang wählen' });
   vorsatzJahre().forEach(j => {
-    const anzahl = (DATA.vorsaetze.jahre[String(j)] || []).length;
-    wahl.appendChild(h('option', {
-      value: String(j),
-      text: j + (anzahl ? ' · ' + anzahl + ' Bereiche' : ' · leer'),
-    }));
+    wahl.appendChild(h('option', { value: String(j), text: String(j) }));
   });
   wahl.appendChild(h('option', { value:'neu', text:'+ anderes Jahr …' }));
   wahl.value = String(DATA.vorsaetze.jahr);
@@ -761,12 +757,24 @@ function zieleSeite(){
    und nicht nach Tabelle; Breite und Farbe hängen an der Kennung,
    damit sie beim Neuzeichnen nicht springen. */
 
-/* Brettbreite bei 320px Bildschirm: 320 abzüglich der Polster von
-   main (2×12), Regal (2×2 Rahmen, 2×6), Brett (2×4) und Buchreihe
-   (2×2). Die große Pflanze auf dem obersten Brett belegt davon 47px. */
-const BRETT_BREITE = 268;
+/* Wie breit ein Brett innen ist: die Breite von main abzüglich der
+   Polster von main (2×12), Regal (2×2 Rahmen, 2×6), Brett (2×4) und
+   Buchreihe (2×2) — zusammen 52px. Die große Pflanze auf dem obersten
+   Brett belegt davon 47px.
+
+   Gemessen wird am Hauptfeld, weil ein 400px-Telefon ein Buch mehr auf
+   das Brett stellt als ein 320px-Telefon. jsdom misst alles mit 0;
+   dann gilt der Wert für den schmalsten Bildschirm. */
+const REGAL_RAND = 52;
+const BRETT_BREITE = 320 - REGAL_RAND;
 const GROSSE_PFLANZE = 47;
 const BUCH_ABSTAND = 3;
+
+function brettBreite(){
+  const main = document.getElementById('main');
+  const gemessen = main ? main.clientWidth - REGAL_RAND : 0;
+  return gemessen > 120 ? gemessen : BRETT_BREITE;
+}
 
 const BUCHFARBEN = [
   ['#7A2E2A','#C8A44A'], ['#1F4F63','#9FD8E2'], ['#3E5D2E','#D2C07A'],
@@ -799,19 +807,18 @@ function skillsSeite(){
   const wurzel = h('div', {});
   const regal = h('div', { class:'regal', id:'regal' });
 
-  /* Verteilt wird nach Breite, nicht nach Stückzahl: die Rücken sind
-     verschieden breit, und eine feste Zahl ließ ein Brett mal überlaufen
-     und mal halb leer stehen. Gerechnet wird mit der Brettbreite des
-     schmalsten unterstützten Bildschirms, damit die Aufteilung überall
-     dieselbe ist; in die Breite gezogen werden die Bücher danach vom
-     Umbruch selbst. */
+  /* Verteilt wird nach Breite, nicht nach Stückzahl: ein Brett bekommt
+     so viele Bücher, wie darauf passen, und erst wenn das nächste nicht
+     mehr hinreicht, fängt das folgende Brett an. Die Rücken behalten
+     dabei ihre eigene Breite. */
+  const platz = brettBreite();
   const bretter = [];
   let rest = 0;
   DATA.skills.forEach((k, i) => {
     const braucht = buchZuschnitt(k.id).breite + BUCH_ABSTAND;
     if (i === 0 || braucht > rest){
       bretter.push([]);
-      rest = BRETT_BREITE - (bretter.length === 1 ? GROSSE_PFLANZE : 0);
+      rest = platz - (bretter.length === 1 ? GROSSE_PFLANZE : 0);
     }
     bretter[bretter.length - 1].push(k);
     rest -= braucht;
@@ -831,10 +838,7 @@ function skillsSeite(){
       const fertig = erledigtVon(aufgaben);
       reihe.appendChild(h('button', {
         class:'buch', 'data-skill': k.id,
-        /* flex-basis statt fester Breite: bleibt ein Brett halb leer,
-           ziehen sich die Rücken darauf in die Lücke, statt rechts
-           einen leeren Streifen stehen zu lassen. */
-        style:'flex:' + z.breite + ' 1 ' + z.breite + 'px;height:' + z.hoehe + 'px;' +
+        style:'flex:none;width:' + z.breite + 'px;height:' + z.hoehe + 'px;' +
               '--ruecken:' + z.farben[0] + ';--praegung:' + z.farben[1] + ';' +
               'transform:rotate(' + z.neigung + 'deg)',
         title: k.name + ' — ' + fertig + '/' + offen,
