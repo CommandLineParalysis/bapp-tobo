@@ -645,8 +645,7 @@ function jahrWaehler(){
     }
     await persist(); render();
   };
-  return h('div', { class:'jahrzeile', id:'jahrzeile' },
-    h('span', { class:'jahrmarke', text:'JAHRGANG' }), wahl);
+  return wahl;
 }
 
 function winkelFuer(i, n){ return (i / Math.max(n, 1)) * Math.PI * 2 - Math.PI / 2; }

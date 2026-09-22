@@ -534,12 +534,11 @@ nav{
 .ordnen.aus{opacity:.25;pointer-events:none}
 .ordnen:focus-visible{outline:2px solid var(--petrol);outline-offset:1px}
 
-/* Der Jahrgang der Vorsätze. */
-.jahrzeile{display:flex;align-items:center;gap:9px;margin-top:9px}
-.jahrmarke{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.08em;
-  color:var(--tinte-blass);flex:none}
+/* Der Jahrgang der Vorsätze: über die ganze Zeile, ohne Beschriftung
+   davor — im Menü steht ohnehin eine Jahreszahl, und die erklärt sich
+   von selbst. */
 .jahrwahl{
-  flex:1;min-height:38px;cursor:pointer;
+  display:block;width:100%;margin-top:9px;min-height:38px;cursor:pointer;
   background:var(--blatt);color:var(--tinte);
   border:2px solid var(--linie);border-radius:0;padding:6px 9px;
   font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.04em;
